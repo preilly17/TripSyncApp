@@ -24,6 +24,8 @@ struct APIClient {
         configuration.httpCookieStorage = .shared
         configuration.httpCookieAcceptPolicy = .always
         configuration.httpShouldSetCookies = true
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 60
         HTTPCookieStorage.shared.cookieAcceptPolicy = .always
         return URLSession(configuration: configuration)
     }

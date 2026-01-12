@@ -2,6 +2,8 @@ import SwiftUI
 
 struct FlightsListView: View {
     @StateObject private var viewModel: FlightsViewModel
+    @State private var showingAddFlightSheet = false
+    @State private var alertInfo: AlertInfo?
 
     init(tripId: Int, flightsAPI: FlightsAPI? = nil) {
         let resolvedAPI = flightsAPI ?? (try? FlightsAPI())
@@ -24,7 +26,14 @@ struct FlightsListView: View {
             case .loaded(let flights):
                 LazyVStack(spacing: 12) {
                     ForEach(flights) { flight in
-                        FlightRowCard(flight: flight)
+                        FlightRowCard(
+                            flight: flight,
+                            isProposing: viewModel.proposingFlightId == flight.id
+                        ) {
+                            Task {
+                                await proposeFlight(flight)
+                            }
+                        }
                     }
                 }
             case .error(let message):
@@ -47,12 +56,57 @@ struct FlightsListView: View {
                 await viewModel.loadFlights()
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showingAddFlightSheet = true
+                } label: {
+                    Label("Add Flight", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingAddFlightSheet) {
+            AddFlightSheetView(viewModel: viewModel)
+        }
+        .alert(item: $alertInfo) { info in
+            Alert(title: Text(info.title), message: Text(info.message))
+        }
+    }
+
+    @MainActor
+    private func proposeFlight(_ flight: Flight) async {
+        guard let flightId = flight.flightId else {
+            alertInfo = AlertInfo(
+                title: "Unable to Propose",
+                message: "This flight does not have an identifier yet."
+            )
+            return
+        }
+
+        do {
+            try await viewModel.proposeFlight(flightId: flightId)
+            alertInfo = AlertInfo(
+                title: "Flight Proposed",
+                message: "Your flight proposal was submitted."
+            )
+        } catch let error as APIError {
+            alertInfo = AlertInfo(
+                title: "Unable to Propose",
+                message: error.errorDescription ?? "Something went wrong while proposing the flight."
+            )
+        } catch {
+            alertInfo = AlertInfo(
+                title: "Unable to Propose",
+                message: error.localizedDescription
+            )
+        }
     }
 }
 
 @MainActor
 final class FlightsViewModel: ObservableObject {
     @Published var state: FlightsState = .loading
+    @Published var proposingFlightId: String?
 
     private let tripId: Int
     private let flightsAPI: FlightsAPI?
@@ -77,6 +131,36 @@ final class FlightsViewModel: ObservableObject {
             state = .error(error.localizedDescription)
         }
     }
+
+    func refresh() async {
+        await loadFlights()
+    }
+
+    func addManualFlight(payload: AddFlightPayload) async throws {
+        guard let flightsAPI else {
+            throw APIError.invalidResponse
+        }
+
+        try await flightsAPI.addManualFlight(tripId: tripId, payload: payload)
+    }
+
+    func proposeFlight(flightId: Int) async throws {
+        guard let flightsAPI else {
+            throw APIError.invalidResponse
+        }
+
+        proposingFlightId = String(flightId)
+        defer { proposingFlightId = nil }
+        try await flightsAPI.proposeFlight(tripId: tripId, flightId: flightId)
+    }
+
+    func cancelFlightProposal(proposalId: Int) async throws {
+        guard let flightsAPI else {
+            throw APIError.invalidResponse
+        }
+
+        try await flightsAPI.cancelFlightProposal(tripId: tripId, proposalId: proposalId)
+    }
 }
 
 enum FlightsState {
@@ -88,6 +172,8 @@ enum FlightsState {
 
 private struct FlightRowCard: View {
     let flight: Flight
+    let isProposing: Bool
+    let onPropose: () -> Void
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -138,6 +224,21 @@ private struct FlightRowCard: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            HStack {
+                Spacer()
+                Button {
+                    onPropose()
+                } label: {
+                    if isProposing {
+                        ProgressView()
+                    } else {
+                        Text("Propose")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(isProposing || flight.flightId == nil)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -167,6 +268,12 @@ private struct FlightRowCard: View {
         }
         return "TBD"
     }
+}
+
+private struct AlertInfo: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
 }
 
 #Preview {
