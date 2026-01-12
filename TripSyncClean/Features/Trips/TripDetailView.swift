@@ -7,7 +7,8 @@ struct TripDetailView: View {
         VStack(spacing: 12) {
             Text(trip.name)
                 .font(.title)
-            Text("Trip ID: \(trip.id)")
+                .fontWeight(.semibold)
+            Text("Trip details coming soon")
                 .foregroundStyle(.secondary)
         }
         .padding()
@@ -18,6 +19,6 @@ struct TripDetailView: View {
 
 #Preview {
     NavigationStack {
-        TripDetailView(trip: TripCalendar(id: 1, name: "Paris Getaway", destination: "Paris", startDate: "2025-03-01", endDate: "2025-03-10", shareCode: "ABC123", createdBy: "user1", coverPhotoUrl: nil))
+        TripDetailView(trip: TripCalendar(id: 1, name: "Paris Getaway", destination: "Paris", startDate: "2025-03-01", endDate: "2025-03-10", travelerCount: 3, planningPercentage: 75, shareCode: "ABC123", createdBy: "user1", coverPhotoUrl: nil))
     }
 }
