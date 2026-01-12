@@ -1,7 +1,7 @@
 import Foundation
 
 struct Flight: Identifiable, Decodable {
-    let flightId: Int?
+    let id: Int?
     let airline: String?
     let flightNumber: String?
     let departAirportCode: String?
@@ -14,20 +14,6 @@ struct Flight: Identifiable, Decodable {
     let arriveDateTimeRaw: String?
     let status: String?
     let bookingSource: String?
-
-    var id: String {
-        if let flightId {
-            return String(flightId)
-        }
-        let airlineText = airline ?? ""
-        let numberText = flightNumber ?? ""
-        let departText = departDateTimeRaw ?? ""
-        let arriveText = arriveDateTimeRaw ?? ""
-        let routeText = "\(departAirportCode ?? "")-\(arriveAirportCode ?? "")"
-        return [airlineText, numberText, routeText, departText, arriveText]
-            .joined(separator: "|")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
 
     var displayTitle: String {
         let airlineText = airline?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -89,7 +75,7 @@ struct Flight: Identifiable, Decodable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        flightId = try container.decodeIfPresent(Int.self, forKey: .id)
+        id = try container.decodeIfPresent(Int.self, forKey: .id)
 
         let carrier = try? container.decodeIfPresent(Carrier.self, forKey: .carrier)
         let carrierName = carrier?.name ?? carrier?.code

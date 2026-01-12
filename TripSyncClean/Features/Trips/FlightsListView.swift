@@ -75,11 +75,12 @@ struct FlightsListView: View {
 
     @MainActor
     private func proposeFlight(_ flight: Flight) async {
-        guard let flightId = flight.flightId else {
+        guard let flightId = flight.id else {
             alertInfo = AlertInfo(
                 title: "Unable to Propose",
                 message: "This flight does not have an identifier yet."
             )
+            print("⚠️ Missing flight id for proposal: \(flight.displayTitle)")
             return
         }
 
@@ -106,7 +107,7 @@ struct FlightsListView: View {
 @MainActor
 final class FlightsViewModel: ObservableObject {
     @Published var state: FlightsState = .loading
-    @Published var proposingFlightId: String?
+    @Published var proposingFlightId: Int?
 
     private let tripId: Int
     private let flightsAPI: FlightsAPI?
@@ -149,7 +150,7 @@ final class FlightsViewModel: ObservableObject {
             throw APIError.invalidResponse
         }
 
-        proposingFlightId = String(flightId)
+        proposingFlightId = flightId
         defer { proposingFlightId = nil }
         try await flightsAPI.proposeFlight(tripId: tripId, flightId: flightId)
     }
@@ -237,7 +238,7 @@ private struct FlightRowCard: View {
                     }
                 }
                 .buttonStyle(.bordered)
-                .disabled(isProposing || flight.flightId == nil)
+                .disabled(isProposing || flight.id == nil)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
