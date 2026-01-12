@@ -75,17 +75,10 @@ struct FlightsListView: View {
 
     @MainActor
     private func proposeFlight(_ flight: Flight) async {
-        guard let flightId = flight.id else {
-            alertInfo = AlertInfo(
-                title: "Unable to Propose",
-                message: "This flight does not have an identifier yet."
-            )
-            print("⚠️ Missing flight id for proposal: \(flight.displayTitle)")
-            return
-        }
+        print("✈️ Propose tapped for flight id: \(flight.id)")
 
         do {
-            try await viewModel.proposeFlight(flightId: flightId)
+            try await viewModel.proposeFlight(flightId: flight.id)
             alertInfo = AlertInfo(
                 title: "Flight Proposed",
                 message: "Your flight proposal was submitted."
@@ -238,7 +231,7 @@ private struct FlightRowCard: View {
                     }
                 }
                 .buttonStyle(.bordered)
-                .disabled(isProposing || flight.id == nil)
+                .disabled(isProposing)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

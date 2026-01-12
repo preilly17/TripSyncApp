@@ -93,7 +93,15 @@ struct FlightsAPI {
 
     func proposeFlight(tripId: Int, flightId: Int) async throws {
         let path = "/api/trips/\(tripId)/proposals/flights"
-        let body = try encodedBody(ProposeFlightPayload(flightId: flightId))
+        let body = try encodedBody(
+            ProposeFlightRequest(flightId: flightId),
+            keyEncodingStrategy: .useDefaultKeys
+        )
+#if DEBUG
+        if let json = String(data: body, encoding: .utf8) {
+            print("✈️ Propose flight payload:", json)
+        }
+#endif
         try await sendRequest(path: path, method: "POST", body: body)
     }
 
@@ -167,8 +175,7 @@ struct FlightsAPI {
 #if DEBUG
         guard let sample = flights.first else { return }
         let airline = sample.airline ?? "Unknown Airline"
-        let idText = sample.id.map(String.init) ?? "nil"
-        print("✈️ Decoded flight sample id=\(idText), airline=\(airline)")
+        print("✈️ Decoded flight sample id=\(sample.id), airline=\(airline)")
 #endif
     }
 }
@@ -205,7 +212,7 @@ struct AddFlightPayload: Encodable {
     }
 }
 
-private struct ProposeFlightPayload: Encodable {
+private struct ProposeFlightRequest: Encodable {
     let flightId: Int
 }
 

@@ -1,7 +1,7 @@
 import Foundation
 
 struct Flight: Identifiable, Decodable {
-    let id: Int?
+    let id: Int
     let airline: String?
     let flightNumber: String?
     let departAirportCode: String?
@@ -75,7 +75,7 @@ struct Flight: Identifiable, Decodable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        id = try container.decodeIfPresent(Int.self, forKey: .id)
+        id = try container.decode(Int.self, forKey: .id)
 
         let carrier = try? container.decodeIfPresent(Carrier.self, forKey: .carrier)
         let carrierName = carrier?.name ?? carrier?.code
