@@ -39,22 +39,7 @@ struct FlightsAPI {
                 throw APIError.httpStatus(httpResponse.statusCode, parseMessage(from: data))
             }
 
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            decoder.dateDecodingStrategy = .custom { decoder in
-                let container = try decoder.singleValueContainer()
-                let value = try container.decode(String.self)
-                let formatter = ISO8601DateFormatter()
-                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                if let date = formatter.date(from: value) {
-                    return date
-                }
-                formatter.formatOptions = [.withInternetDateTime]
-                if let date = formatter.date(from: value) {
-                    return date
-                }
-                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO8601 date: \(value)")
-            }
+            let decoder = makeDecoder()
             do {
                 let flights = try decoder.decode([Flight].self, from: data)
                 logDecodedFlightSample(flights)
@@ -108,6 +93,21 @@ struct FlightsAPI {
     func cancelFlightProposal(tripId: Int, proposalId: Int) async throws {
         let path = "/api/trips/\(tripId)/proposals/flights/\(proposalId)"
         try await sendRequest(path: path, method: "DELETE", body: nil)
+    }
+
+    func fetchFlightProposals(tripId: Int) async throws -> [FlightProposal] {
+        let preferredPath = "/api/trips/\(tripId)/proposals"
+        do {
+            return try await fetchProposals(path: preferredPath)
+        } catch let error as APIError {
+            if case .httpStatus(let statusCode, _) = error, statusCode == 404 || statusCode == 405 {
+                let fallbackPath = "/api/trips/\(tripId)/proposals/flights"
+                return try await fetchProposals(path: fallbackPath)
+            }
+            throw error
+        } catch {
+            throw error
+        }
     }
 
     private func parseMessage(from data: Data) -> String? {
@@ -171,6 +171,63 @@ struct FlightsAPI {
         }
     }
 
+    private func fetchProposals(path: String) async throws -> [FlightProposal] {
+        guard let url = URL(string: path, relativeTo: client.baseURL) else {
+            throw APIError.invalidURL(path)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        do {
+            let (data, response) = try await client.session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+#if DEBUG
+            print("FlightsAPI GET \(httpResponse.url?.absoluteString ?? path) -> \(httpResponse.statusCode)")
+#endif
+            if httpResponse.statusCode == 401 {
+                throw APIError.unauthorized(parseMessage(from: data))
+            }
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                throw APIError.httpStatus(httpResponse.statusCode, parseMessage(from: data))
+            }
+
+            let decoder = makeDecoder()
+            do {
+                return try decoder.decode([FlightProposal].self, from: data)
+            } catch {
+                let wrapped = try decoder.decode(FlightProposalsResponse.self, from: data)
+                return wrapped.proposals
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw APIError.transport(error)
+        }
+    }
+
+    private func makeDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: value) {
+                return date
+            }
+            formatter.formatOptions = [.withInternetDateTime]
+            if let date = formatter.date(from: value) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO8601 date: \(value)")
+        }
+        return decoder
+    }
+
     private func logDecodedFlightSample(_ flights: [Flight]) {
 #if DEBUG
         guard let sample = flights.first else { return }
@@ -182,6 +239,33 @@ struct FlightsAPI {
 
 private struct FlightsResponse: Decodable {
     let flights: [Flight]
+}
+
+private struct FlightProposalsResponse: Decodable {
+    let proposals: [FlightProposal]
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let proposals = try? container.decode([FlightProposal].self, forKey: .proposals) {
+            self.proposals = proposals
+            return
+        }
+        if let proposals = try? container.decode([FlightProposal].self, forKey: .flightProposals) {
+            self.proposals = proposals
+            return
+        }
+        if let proposals = try? container.decode([FlightProposal].self, forKey: .flights) {
+            self.proposals = proposals
+            return
+        }
+        throw DecodingError.dataCorruptedError(forKey: .proposals, in: container, debugDescription: "Missing proposals list.")
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case proposals
+        case flightProposals
+        case flights
+    }
 }
 
 struct AddFlightPayload: Encodable {
