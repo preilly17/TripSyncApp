@@ -26,6 +26,38 @@ struct AuthAPI {
         try await client.request("/api/auth/me")
     }
 
+    func checkSessionViaTrips() async throws -> Bool {
+        let path = "/api/trips"
+        guard let url = URL(string: path, relativeTo: client.baseURL) else {
+            throw APIError.invalidURL(path)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        do {
+            let (data, response) = try await client.session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+#if DEBUG
+            print("AuthAPI GET \(httpResponse.url?.absoluteString ?? path) -> \(httpResponse.statusCode)")
+#endif
+            switch httpResponse.statusCode {
+            case 200:
+                return true
+            case 401:
+                return false
+            default:
+                throw APIError.httpStatus(httpResponse.statusCode, responseSnippet(from: data))
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw APIError.transport(error)
+        }
+    }
+
     func logout() async throws {
         _ = try await client.request(
             "/api/auth/logout",
@@ -38,4 +70,22 @@ struct AuthAPI {
 private struct LoginRequest: Encodable {
     let usernameOrEmail: String
     let password: String
+}
+
+private func responseSnippet(from data: Data) -> String? {
+    guard !data.isEmpty else { return nil }
+    if let object = try? JSONSerialization.jsonObject(with: data),
+       let dictionary = object as? [String: Any] {
+        if let message = dictionary["message"] as? String {
+            return message
+        }
+        if let error = dictionary["error"] as? String {
+            return error
+        }
+    }
+    if let string = String(data: data, encoding: .utf8) {
+        let snippet = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return snippet.isEmpty ? nil : String(snippet.prefix(200))
+    }
+    return nil
 }

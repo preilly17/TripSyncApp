@@ -5,7 +5,7 @@ final class AuthViewModel: ObservableObject {
     enum State {
         case checking
         case unauthenticated
-        case authenticated(User)
+        case authenticated
         case failed(String)
     }
 
@@ -26,6 +26,8 @@ final class AuthViewModel: ObservableObject {
 
     func checkSessionIfNeeded() async {
         guard case .checking = state else { return }
+        guard !hasCheckedSession else { return }
+        hasCheckedSession = true
         await checkSession()
     }
 
@@ -36,15 +38,10 @@ final class AuthViewModel: ObservableObject {
         }
 
         do {
-            let user = try await authAPI.currentUser()
-            state = .authenticated(user)
+            let isAuthenticated = try await authAPI.checkSessionViaTrips()
+            state = isAuthenticated ? .authenticated : .unauthenticated
         } catch let error as APIError {
-            switch error {
-            case .unauthorized:
-                state = .unauthenticated
-            default:
-                state = .failed(error.errorDescription ?? "Unable to check session.")
-            }
+            state = .failed(error.errorDescription ?? "Unable to check session.")
         } catch {
             state = .failed(error.localizedDescription)
         }
@@ -61,8 +58,8 @@ final class AuthViewModel: ObservableObject {
         defer { isAuthenticating = false }
 
         do {
-            let user = try await authAPI.login(usernameOrEmail: email, password: password)
-            state = .authenticated(user)
+            _ = try await authAPI.login(usernameOrEmail: email, password: password)
+            state = .authenticated
         } catch {
             loginError = errorMessage(for: error)
         }
@@ -79,4 +76,6 @@ final class AuthViewModel: ObservableObject {
         }
         return error.localizedDescription
     }
+
+    private var hasCheckedSession = false
 }
