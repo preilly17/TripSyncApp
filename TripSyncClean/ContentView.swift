@@ -8,17 +8,19 @@
 import SwiftUI
 
 struct ContentView: View {
+    private let tripsAPI: TripsAPI?
+
+    init(tripsAPI: TripsAPI? = (try? APIClient()).map { TripsAPI(client: $0) }) {
+        self.tripsAPI = tripsAPI
+    }
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        NavigationStack {
+            TripsListView(tripsAPI: tripsAPI)
         }
-        .padding()
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(tripsAPI: nil)
 }
