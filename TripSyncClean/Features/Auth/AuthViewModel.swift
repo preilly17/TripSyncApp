@@ -58,8 +58,9 @@ final class AuthViewModel: ObservableObject {
         defer { isAuthenticating = false }
 
         do {
-            _ = try await authAPI.login(usernameOrEmail: email, password: password)
-            state = .authenticated
+            try await authAPI.login(usernameOrEmail: email, password: password)
+            let isAuthenticated = try await authAPI.checkSessionViaTrips()
+            state = isAuthenticated ? .authenticated : .unauthenticated
         } catch {
             loginError = errorMessage(for: error)
         }

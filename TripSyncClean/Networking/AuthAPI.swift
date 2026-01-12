@@ -11,15 +11,39 @@ struct AuthAPI {
         self.client = try APIClient()
     }
 
-    func login(usernameOrEmail: String, password: String) async throws -> User {
+    func login(usernameOrEmail: String, password: String) async throws {
         let payload = LoginRequest(usernameOrEmail: usernameOrEmail, password: password)
         let body = try JSONEncoder().encode(payload)
-        return try await client.request(
-            "/api/auth/login",
-            method: "POST",
-            body: body,
-            headers: ["Content-Type": "application/json"]
-        )
+        let path = "/api/auth/login"
+        guard let url = URL(string: path, relativeTo: client.baseURL) else {
+            throw APIError.invalidURL(path)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Cookie-based auth: the server sets a session cookie and may return an empty body.
+        do {
+            let (data, response) = try await client.session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+#if DEBUG
+            print("AuthAPI POST \(httpResponse.url?.absoluteString ?? path) -> \(httpResponse.statusCode)")
+#endif
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                let message = responseSnippet(from: data)
+                if httpResponse.statusCode == 401 {
+                    throw APIError.unauthorized(message)
+                }
+                throw APIError.httpStatus(httpResponse.statusCode, message)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw APIError.transport(error)
+        }
     }
 
     func currentUser() async throws -> User {
