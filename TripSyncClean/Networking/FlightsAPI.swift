@@ -56,10 +56,13 @@ struct FlightsAPI {
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO8601 date: \(value)")
             }
             do {
-                return try decoder.decode([Flight].self, from: data)
+                let flights = try decoder.decode([Flight].self, from: data)
+                logDecodedFlightSample(flights)
+                return flights
             } catch {
                 do {
                     let wrapped = try decoder.decode(FlightsResponse.self, from: data)
+                    logDecodedFlightSample(wrapped.flights)
                     return wrapped.flights
                 } catch {
 #if DEBUG
@@ -158,6 +161,15 @@ struct FlightsAPI {
         } catch {
             throw APIError.transport(error)
         }
+    }
+
+    private func logDecodedFlightSample(_ flights: [Flight]) {
+#if DEBUG
+        guard let sample = flights.first else { return }
+        let airline = sample.airline ?? "Unknown Airline"
+        let idText = sample.id.map(String.init) ?? "nil"
+        print("✈️ Decoded flight sample id=\(idText), airline=\(airline)")
+#endif
     }
 }
 
