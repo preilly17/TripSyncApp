@@ -79,7 +79,7 @@ private struct TripCardView: View {
 
     var body: some View {
         NavigationLink {
-            TripDetailView(trip: trip)
+            TripDetailsView(trip: TripSummaryDisplay(trip: trip))
         } label: {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top) {
@@ -99,12 +99,9 @@ private struct TripCardView: View {
 
                     Spacer()
 
-                    HStack(spacing: 4) {
-                        Text("Open trip")
-                        Image(systemName: "chevron.right")
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.tint)
+                    Text("Open trip →")
+                        .font(.subheadline)
+                        .foregroundStyle(.tint)
                 }
 
                 HStack(spacing: 16) {
