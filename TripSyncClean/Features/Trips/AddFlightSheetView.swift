@@ -4,6 +4,7 @@ struct AddFlightSheetView: View {
     @ObservedObject var viewModel: FlightsViewModel
     @Environment(\.dismiss) private var dismiss
 
+    @State private var airline = ""
     @State private var airlineCode = ""
     @State private var flightNumber = ""
     @State private var departureAirport = ""
@@ -22,6 +23,7 @@ struct AddFlightSheetView: View {
         NavigationStack {
             Form {
                 Section("Flight Details") {
+                    TextField("Airline", text: $airline)
                     TextField("Airline Code", text: $airlineCode)
                     TextField("Flight Number", text: $flightNumber)
                     TextField("Departure Airport", text: $departureAirport)
@@ -85,7 +87,8 @@ struct AddFlightSheetView: View {
         pointsCostError = nil
         errorMessage = nil
 
-        guard let resolvedFlightNumber = requiredString(flightNumber, label: "flight number"),
+        guard let resolvedAirline = requiredString(airline, label: "airline"),
+              let resolvedFlightNumber = requiredString(flightNumber, label: "flight number"),
               let resolvedAirlineCode = requiredString(airlineCode, label: "airline code"),
               let resolvedDepartureAirport = requiredString(departureAirport, label: "departure airport"),
               let resolvedDepartureCode = requiredString(departureCode, label: "departure code"),
@@ -115,6 +118,7 @@ struct AddFlightSheetView: View {
         }
 
         let payload = AddFlightPayload(
+            airline: resolvedAirline,
             flightNumber: resolvedFlightNumber,
             airlineCode: resolvedAirlineCode,
             departureAirport: resolvedDepartureAirport,
