@@ -76,10 +76,12 @@ struct TripDetailsView: View {
                 TripDetailsRow(label: "Members", value: "Coming soon")
             }
         case .flights:
-            TripDetailsCard(title: "Flights — Coming in Slice 5") {
-                Text("Flight details will appear here.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Flights")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+
+                FlightsListView(tripId: trip.id)
             }
         case .lodging:
             TripDetailsCard(title: "Lodging — Coming soon") {
