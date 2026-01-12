@@ -3,6 +3,7 @@ import SwiftUI
 struct TripDetailsView: View {
     let trip: TripSummaryDisplay
     @State private var selectedTab: TripDetailsTab = .overview
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         ScrollView {
@@ -16,6 +17,11 @@ struct TripDetailsView: View {
         }
         .navigationTitle("Trip Details")
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: horizontalSizeClass) { _, _ in
+            if !availableTabs.contains(selectedTab) {
+                selectedTab = .overview
+            }
+        }
     }
 
     private var headerView: some View {
@@ -40,7 +46,7 @@ struct TripDetailsView: View {
     private var tabBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(TripDetailsTab.allCases) { tab in
+                ForEach(availableTabs) { tab in
                     Button {
                         selectedTab = tab
                     } label: {
@@ -83,6 +89,8 @@ struct TripDetailsView: View {
 
                 FlightsListView(tripId: trip.id)
             }
+        case .proposals:
+            ProposalsTabView(tripId: trip.id)
         case .lodging:
             TripDetailsCard(title: "Lodging — Coming soon") {
                 Text("Stay information will appear here.")
@@ -102,6 +110,10 @@ struct TripDetailsView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var availableTabs: [TripDetailsTab] {
+        TripDetailsTab.availableTabs(isCompact: horizontalSizeClass == .compact)
     }
 }
 
@@ -129,6 +141,7 @@ struct TripSummaryDisplay: Identifiable {
 private enum TripDetailsTab: String, CaseIterable, Identifiable {
     case overview
     case flights
+    case proposals
     case lodging
     case activities
     case restaurants
@@ -141,6 +154,8 @@ private enum TripDetailsTab: String, CaseIterable, Identifiable {
             return "Overview"
         case .flights:
             return "Flights"
+        case .proposals:
+            return "Proposals"
         case .lodging:
             return "Lodging"
         case .activities:
@@ -148,6 +163,13 @@ private enum TripDetailsTab: String, CaseIterable, Identifiable {
         case .restaurants:
             return "Restaurants"
         }
+    }
+
+    static func availableTabs(isCompact: Bool) -> [TripDetailsTab] {
+        if isCompact {
+            return allCases
+        }
+        return allCases.filter { $0 != .proposals }
     }
 }
 
