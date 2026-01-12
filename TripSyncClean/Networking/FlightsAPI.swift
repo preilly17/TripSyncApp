@@ -79,7 +79,12 @@ struct FlightsAPI {
 
     func addManualFlight(tripId: Int, payload: AddFlightPayload) async throws {
         let path = "/api/trips/\(tripId)/flights"
-        let body = try encodedBody(payload)
+        let body = try encodedBody(payload, keyEncodingStrategy: .useDefaultKeys)
+#if DEBUG
+        if let json = String(data: body, encoding: .utf8) {
+            print("✈️ FlightsAPI manual add payload:", json)
+        }
+#endif
         try await sendRequest(path: path, method: "POST", body: body)
     }
 
@@ -108,9 +113,12 @@ struct FlightsAPI {
         return String(data: data, encoding: .utf8)
     }
 
-    private func encodedBody<T: Encodable>(_ value: T) throws -> Data {
+    private func encodedBody<T: Encodable>(
+        _ value: T,
+        keyEncodingStrategy: JSONEncoder.KeyEncodingStrategy = .convertToSnakeCase
+    ) throws -> Data {
         let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
+        encoder.keyEncodingStrategy = keyEncodingStrategy
         return try encoder.encode(value)
     }
 
@@ -158,15 +166,29 @@ private struct FlightsResponse: Decodable {
 }
 
 struct AddFlightPayload: Encodable {
-    let airline: String?
-    let flightNumber: String?
-    let departAirportCode: String?
-    let arriveAirportCode: String?
-    let departDatetime: String?
-    let arriveDatetime: String?
-    let status: String?
-    let bookingSource: String?
+    let flightNumber: String
+    let airlineCode: String
+    let departureAirport: String
+    let departureCode: String
+    let departureTime: String
+    let arrivalAirport: String
+    let arrivalCode: String
+    let arrivalTime: String
+    let flightType: String
     let pointsCost: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case flightNumber
+        case airlineCode
+        case departureAirport
+        case departureCode
+        case departureTime
+        case arrivalAirport
+        case arrivalCode
+        case arrivalTime
+        case flightType
+        case pointsCost = "points_cost"
+    }
 }
 
 private struct ProposeFlightPayload: Encodable {

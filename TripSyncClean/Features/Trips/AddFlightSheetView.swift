@@ -4,14 +4,14 @@ struct AddFlightSheetView: View {
     @ObservedObject var viewModel: FlightsViewModel
     @Environment(\.dismiss) private var dismiss
 
-    @State private var airline = ""
+    @State private var airlineCode = ""
     @State private var flightNumber = ""
-    @State private var departAirportCode = ""
-    @State private var arriveAirportCode = ""
-    @State private var departDatetime = ""
-    @State private var arriveDatetime = ""
-    @State private var status = ""
-    @State private var bookingSource = ""
+    @State private var departureAirport = ""
+    @State private var departureCode = ""
+    @State private var departureTime = ""
+    @State private var arrivalAirport = ""
+    @State private var arrivalCode = ""
+    @State private var arrivalTime = ""
     @State private var pointsCost = ""
 
     @State private var pointsCostError: String?
@@ -22,16 +22,16 @@ struct AddFlightSheetView: View {
         NavigationStack {
             Form {
                 Section("Flight Details") {
-                    TextField("Airline", text: $airline)
+                    TextField("Airline Code", text: $airlineCode)
                     TextField("Flight Number", text: $flightNumber)
-                    TextField("Depart Airport Code", text: $departAirportCode)
+                    TextField("Departure Airport", text: $departureAirport)
+                    TextField("Departure Code", text: $departureCode)
                         .textInputAutocapitalization(.characters)
-                    TextField("Arrive Airport Code", text: $arriveAirportCode)
+                    TextField("Arrival Airport", text: $arrivalAirport)
+                    TextField("Arrival Code", text: $arrivalCode)
                         .textInputAutocapitalization(.characters)
-                    TextField("Depart Date/Time (ISO 8601)", text: $departDatetime)
-                    TextField("Arrive Date/Time (ISO 8601)", text: $arriveDatetime)
-                    TextField("Status", text: $status)
-                    TextField("Booking Source", text: $bookingSource)
+                    TextField("Departure Time (ISO 8601)", text: $departureTime)
+                    TextField("Arrival Time (ISO 8601)", text: $arrivalTime)
                 }
 
                 Section("Points") {
@@ -85,6 +85,25 @@ struct AddFlightSheetView: View {
         pointsCostError = nil
         errorMessage = nil
 
+        guard let resolvedFlightNumber = requiredString(flightNumber, label: "flight number"),
+              let resolvedAirlineCode = requiredString(airlineCode, label: "airline code"),
+              let resolvedDepartureAirport = requiredString(departureAirport, label: "departure airport"),
+              let resolvedDepartureCode = requiredString(departureCode, label: "departure code"),
+              let resolvedArrivalAirport = requiredString(arrivalAirport, label: "arrival airport"),
+              let resolvedArrivalCode = requiredString(arrivalCode, label: "arrival code") else {
+            return
+        }
+
+        guard let resolvedDepartureTime = normalizedISO8601(departureTime) else {
+            errorMessage = "Enter a valid ISO 8601 departure time."
+            return
+        }
+
+        guard let resolvedArrivalTime = normalizedISO8601(arrivalTime) else {
+            errorMessage = "Enter a valid ISO 8601 arrival time."
+            return
+        }
+
         let trimmedPoints = pointsCost.trimmingCharacters(in: .whitespacesAndNewlines)
         var resolvedPoints: Int?
         if !trimmedPoints.isEmpty {
@@ -96,14 +115,15 @@ struct AddFlightSheetView: View {
         }
 
         let payload = AddFlightPayload(
-            airline: trimmedOrNil(airline),
-            flightNumber: trimmedOrNil(flightNumber),
-            departAirportCode: trimmedOrNil(departAirportCode),
-            arriveAirportCode: trimmedOrNil(arriveAirportCode),
-            departDatetime: trimmedOrNil(departDatetime),
-            arriveDatetime: trimmedOrNil(arriveDatetime),
-            status: trimmedOrNil(status),
-            bookingSource: trimmedOrNil(bookingSource),
+            flightNumber: resolvedFlightNumber,
+            airlineCode: resolvedAirlineCode,
+            departureAirport: resolvedDepartureAirport,
+            departureCode: resolvedDepartureCode,
+            departureTime: resolvedDepartureTime,
+            arrivalAirport: resolvedArrivalAirport,
+            arrivalCode: resolvedArrivalCode,
+            arrivalTime: resolvedArrivalTime,
+            flightType: "manual",
             pointsCost: resolvedPoints
         )
 
@@ -121,9 +141,29 @@ struct AddFlightSheetView: View {
         }
     }
 
-    private func trimmedOrNil(_ value: String) -> String? {
+    private func requiredString(_ value: String, label: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        if trimmed.isEmpty {
+            errorMessage = "Enter a \(label)."
+            return nil
+        }
+        return trimmed
+    }
+
+    private func normalizedISO8601(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: trimmed) {
+            return formatter.string(from: date)
+        }
+        formatter.formatOptions = [.withInternetDateTime]
+        if let date = formatter.date(from: trimmed) {
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return formatter.string(from: date)
+        }
+        return nil
     }
 }
 
