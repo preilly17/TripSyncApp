@@ -59,7 +59,7 @@ final class TripsListViewModel: ObservableObject {
         do {
             let trips = try await tripsAPI.fetchTrips()
             let sortedTrips = trips.sorted { lhs, rhs in
-                TripsDateFormatter.startDate(for: lhs) < TripsDateFormatter.startDate(for: rhs)
+                TripDateFormatter.startDate(for: lhs) < TripDateFormatter.startDate(for: rhs)
             }
             state = sortedTrips.isEmpty ? .empty : .loaded(sortedTrips)
         } catch {
@@ -78,48 +78,53 @@ private struct TripCardView: View {
     let trip: TripCalendar
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(trip.name)
-                        .font(.headline)
-                        .fontWeight(.bold)
+        NavigationLink {
+            TripDetailView(trip: trip)
+        } label: {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(trip.name)
+                            .font(.headline)
+                            .fontWeight(.bold)
 
-                    Text(TripsDateFormatter.dateRangeText(start: trip.startDate, end: trip.endDate))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        Text(TripDateFormatter.dateRangeText(start: trip.startDate, end: trip.endDate))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
 
-                    Text(TripsDateFormatter.daysToGoText(start: trip.startDate))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        Text(TripDateFormatter.daysToGoText(start: trip.startDate))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Text("Open trip")
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.tint)
                 }
 
-                Spacer()
+                HStack(spacing: 16) {
+                    Text(TripCardView.travelerCountText(for: trip))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
 
-                NavigationLink {
-                    TripDetailView(trip: trip)
-                } label: {
-                    Text("Open trip →")
-                        .font(.subheadline)
+                    Text(TripCardView.planningText(for: trip))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.bordered)
             }
-
-            HStack(spacing: 16) {
-                Text(TripCardView.travelerCountText(for: trip))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-
-                Text(TripCardView.planningText(for: trip))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(.secondarySystemBackground))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-        )
+        .buttonStyle(.plain)
     }
 
     private static func travelerCountText(for trip: TripCalendar) -> String {
@@ -130,87 +135,6 @@ private struct TripCardView: View {
     private static func planningText(for trip: TripCalendar) -> String {
         let percentage = trip.planningPercentage ?? 0
         return "Planning \(percentage)%"
-    }
-}
-
-private enum TripsDateFormatter {
-    static let parseFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withFullDate]
-        return formatter
-    }()
-
-    static let parseDateTimeFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    static let monthDayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "MMM d"
-        return formatter
-    }()
-
-    static let dayYearFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "d, yyyy"
-        return formatter
-    }()
-
-    static let fullDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "MMM d, yyyy"
-        return formatter
-    }()
-
-    static func startDate(for trip: TripCalendar) -> Date {
-        parseDate(trip.startDate) ?? .distantFuture
-    }
-
-    static func dateRangeText(start: String, end: String) -> String {
-        guard let startDate = parseDate(start), let endDate = parseDate(end) else {
-            return "\(start)–\(end)"
-        }
-
-        let calendar = Calendar(identifier: .gregorian)
-        if calendar.component(.year, from: startDate) == calendar.component(.year, from: endDate) {
-            let startText = monthDayFormatter.string(from: startDate)
-            let endText = dayYearFormatter.string(from: endDate)
-            return "\(startText)–\(endText)"
-        }
-
-        let startText = fullDateFormatter.string(from: startDate)
-        let endText = fullDateFormatter.string(from: endDate)
-        return "\(startText)–\(endText)"
-    }
-
-    static func daysToGoText(start: String) -> String {
-        guard let startDate = parseDate(start) else {
-            return "Dates to be announced"
-        }
-
-        let calendar = Calendar(identifier: .gregorian)
-        let now = calendar.startOfDay(for: Date())
-        let startDay = calendar.startOfDay(for: startDate)
-        let dayCount = max(calendar.dateComponents([.day], from: now, to: startDay).day ?? 0, 0)
-        return dayCount == 1 ? "1 day to go" : "\(dayCount) days to go"
-    }
-
-    private static func parseDate(_ value: String) -> Date? {
-        if let date = parseFormatter.date(from: value) {
-            return date
-        }
-        return parseDateTimeFormatter.date(from: value)
     }
 }
 
