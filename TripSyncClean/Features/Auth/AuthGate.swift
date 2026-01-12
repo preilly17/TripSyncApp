@@ -1,73 +1,51 @@
 import SwiftUI
 
 struct AuthGate: View {
-    @State private var state: AuthState = .loading
-    private let tripsAPI: TripsAPI? = try? TripsAPI()
+    @StateObject private var viewModel: AuthViewModel
+
+    init(client: APIClient? = try? APIClient()) {
+        _viewModel = StateObject(wrappedValue: AuthViewModel(client: client))
+    }
 
     var body: some View {
-        Group {
-            switch state {
-            case .loading:
-                ProgressView("Checking session...")
-            case .unauthenticated:
-                LoginView { user in
-                    state = .authenticated(user)
-                }
-            case .authenticated:
-                NavigationStack {
-                    TripsListView(tripsAPI: tripsAPI)
-                }
-            case .error(let message):
-                VStack(spacing: 16) {
-                    Text("Unable to load session")
-                        .font(.headline)
-                    Text(message)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                    Button("Retry") {
-                        state = .loading
-                        Task {
-                            await loadCurrentUser()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding()
-            }
+        NavigationStack {
+            content
         }
         .task {
-            if case .loading = state {
-                await loadCurrentUser()
-            }
+            await viewModel.checkSessionIfNeeded()
         }
     }
 
-    private func loadCurrentUser() async {
-        do {
-            let api = try AuthAPI()
-            let user = try await api.currentUser()
-            state = .authenticated(user)
-        } catch let error as APIError {
-            switch error {
-            case .unauthorized:
-                state = .unauthenticated
-            default:
-                state = .error(error.localizedDescription)
+    @ViewBuilder
+    private var content: some View {
+        switch viewModel.state {
+        case .checking:
+            ProgressView("Checking session")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .unauthenticated:
+            LoginView(viewModel: viewModel)
+        case .authenticated:
+            TripsListView(tripsAPI: viewModel.tripsAPI)
+        case .failed(let message):
+            VStack(spacing: 16) {
+                Text("Unable to connect")
+                    .font(.title2)
+                Text(message)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                Button("Retry") {
+                    Task {
+                        await viewModel.retrySessionCheck()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
             }
-        } catch {
-            state = .error(error.localizedDescription)
+            .padding()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
-}
-
-private enum AuthState {
-    case loading
-    case unauthenticated
-    case authenticated(User)
-    case error(String)
 }
 
 #Preview {
-    AuthGate()
+    AuthGate(client: nil)
 }

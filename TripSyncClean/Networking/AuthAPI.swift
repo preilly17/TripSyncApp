@@ -23,7 +23,7 @@ struct AuthAPI {
     }
 
     func currentUser() async throws -> User {
-        try await client.request("/api/auth/user")
+        try await client.request("/api/auth/me")
     }
 
     func logout() async throws {

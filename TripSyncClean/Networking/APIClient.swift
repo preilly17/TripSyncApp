@@ -6,7 +6,7 @@ struct APIClient {
     let session: URLSession
     let baseURL: URL
 
-    init(session: URLSession = .shared) throws {
+    init(session: URLSession = APIClient.makeSession()) throws {
         let key = "API_BASE_URL"
         guard let baseURLString = Bundle.main.object(forInfoDictionaryKey: key) as? String,
               !baseURLString.isEmpty else {
@@ -17,6 +17,15 @@ struct APIClient {
         }
         self.session = session
         self.baseURL = baseURL
+    }
+
+    private static func makeSession() -> URLSession {
+        let configuration = URLSessionConfiguration.default
+        configuration.httpCookieStorage = .shared
+        configuration.httpCookieAcceptPolicy = .always
+        configuration.httpShouldSetCookies = true
+        HTTPCookieStorage.shared.cookieAcceptPolicy = .always
+        return URLSession(configuration: configuration)
     }
 
     func request<T: Decodable>(
@@ -40,6 +49,11 @@ struct APIClient {
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw APIError.invalidResponse
             }
+#if DEBUG
+            let urlString = request.url?.absoluteString ?? "unknown URL"
+            let method = request.httpMethod ?? "GET"
+            print("APIClient \(method) \(urlString) -> \(httpResponse.statusCode)")
+#endif
             if httpResponse.statusCode == 401 {
                 throw APIError.unauthorized(parseMessage(from: data))
             }

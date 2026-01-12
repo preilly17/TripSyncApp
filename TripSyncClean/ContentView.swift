@@ -8,19 +8,11 @@
 import SwiftUI
 
 struct ContentView: View {
-    private let tripsAPI: TripsAPI?
-
-    init(tripsAPI: TripsAPI? = (try? APIClient()).map { TripsAPI(client: $0) }) {
-        self.tripsAPI = tripsAPI
-    }
-
     var body: some View {
-        NavigationStack {
-            TripsListView(tripsAPI: tripsAPI)
-        }
+        AuthGate()
     }
 }
 
 #Preview {
-    ContentView(tripsAPI: nil)
+    ContentView()
 }
