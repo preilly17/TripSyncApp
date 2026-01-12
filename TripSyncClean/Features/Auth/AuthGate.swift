@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AuthGate: View {
     @State private var state: AuthState = .loading
+    private let tripsAPI: TripsAPI? = try? TripsAPI()
 
     var body: some View {
         Group {
@@ -12,9 +13,9 @@ struct AuthGate: View {
                 LoginView { user in
                     state = .authenticated(user)
                 }
-            case .authenticated(let user):
+            case .authenticated:
                 NavigationStack {
-                    TripsListView(user: user)
+                    TripsListView(tripsAPI: tripsAPI)
                 }
             case .error(let message):
                 VStack(spacing: 16) {
