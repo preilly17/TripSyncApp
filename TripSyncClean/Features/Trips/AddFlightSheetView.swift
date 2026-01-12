@@ -9,15 +9,17 @@ struct AddFlightSheetView: View {
     @State private var flightNumber = ""
     @State private var departureAirport = ""
     @State private var departureCode = ""
-    @State private var departureTime = ""
+    @State private var departDate = Date()
     @State private var arrivalAirport = ""
     @State private var arrivalCode = ""
-    @State private var arrivalTime = ""
+    @State private var arriveDate = Date()
     @State private var pointsCost = ""
 
     @State private var pointsCostError: String?
     @State private var errorMessage: String?
     @State private var isSubmitting = false
+    @State private var showingDeparturePicker = false
+    @State private var showingArrivalPicker = false
 
     var body: some View {
         NavigationStack {
@@ -32,8 +34,29 @@ struct AddFlightSheetView: View {
                     TextField("Arrival Airport", text: $arrivalAirport)
                     TextField("Arrival Code", text: $arrivalCode)
                         .textInputAutocapitalization(.characters)
-                    TextField("Departure Time (ISO 8601)", text: $departureTime)
-                    TextField("Arrival Time (ISO 8601)", text: $arrivalTime)
+                    Button {
+                        showingDeparturePicker = true
+                    } label: {
+                        HStack {
+                            Text("Departure Time")
+                            Spacer()
+                            Text(displayDateFormatter.string(from: departDate))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        showingArrivalPicker = true
+                    } label: {
+                        HStack {
+                            Text("Arrival Time")
+                            Spacer()
+                            Text(displayDateFormatter.string(from: arriveDate))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 Section("Points") {
@@ -79,6 +102,52 @@ struct AddFlightSheetView: View {
                     .disabled(isSubmitting)
                 }
             }
+            .sheet(isPresented: $showingDeparturePicker) {
+                NavigationStack {
+                    VStack {
+                        DatePicker(
+                            "Departure Time",
+                            selection: $departDate,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                    }
+                    .padding()
+                    .navigationTitle("Departure Time")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                showingDeparturePicker = false
+                            }
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showingArrivalPicker) {
+                NavigationStack {
+                    VStack {
+                        DatePicker(
+                            "Arrival Time",
+                            selection: $arriveDate,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                    }
+                    .padding()
+                    .navigationTitle("Arrival Time")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                showingArrivalPicker = false
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -97,15 +166,10 @@ struct AddFlightSheetView: View {
             return
         }
 
-        guard let resolvedDepartureTime = normalizedISO8601(departureTime) else {
-            errorMessage = "Enter a valid ISO 8601 departure time."
-            return
-        }
-
-        guard let resolvedArrivalTime = normalizedISO8601(arrivalTime) else {
-            errorMessage = "Enter a valid ISO 8601 arrival time."
-            return
-        }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let resolvedDepartureTime = formatter.string(from: departDate)
+        let resolvedArrivalTime = formatter.string(from: arriveDate)
 
         let trimmedPoints = pointsCost.trimmingCharacters(in: .whitespacesAndNewlines)
         var resolvedPoints: Int?
@@ -153,23 +217,14 @@ struct AddFlightSheetView: View {
         }
         return trimmed
     }
-
-    private func normalizedISO8601(_ value: String) -> String? {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: trimmed) {
-            return formatter.string(from: date)
-        }
-        formatter.formatOptions = [.withInternetDateTime]
-        if let date = formatter.date(from: trimmed) {
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            return formatter.string(from: date)
-        }
-        return nil
-    }
 }
+
+private let displayDateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter
+}()
 
 #Preview {
     AddFlightSheetView(viewModel: FlightsViewModel(tripId: 1, flightsAPI: nil))
