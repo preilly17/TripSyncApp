@@ -148,12 +148,13 @@ private struct FlightRowCard: View {
     }
 
     private var timeRowTitle: String {
-        "Depart → Arrive"
+        let route = flight.routeText
+        return route.isEmpty ? "Depart → Arrive" : route
     }
 
     private var timeRowValue: String {
-        let departText = formattedDate(flight.departDate, fallback: flight.departDateTime)
-        let arriveText = formattedDate(flight.arriveDate, fallback: flight.arriveDateTime)
+        let departText = formattedDate(flight.departDate, fallback: flight.departDateTimeRaw)
+        let arriveText = formattedDate(flight.arriveDate, fallback: flight.arriveDateTimeRaw)
         return "\(departText) → \(arriveText)"
     }
 

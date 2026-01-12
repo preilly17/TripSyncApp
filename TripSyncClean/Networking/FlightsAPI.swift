@@ -27,6 +27,10 @@ struct FlightsAPI {
             }
 #if DEBUG
             print("FlightsAPI GET \(httpResponse.url?.absoluteString ?? path) -> \(httpResponse.statusCode)")
+            print("✈️ Flights request path:", url.path)
+            if let raw = String(data: data, encoding: .utf8) {
+                print("✈️ Flights raw response:", raw)
+            }
 #endif
             if httpResponse.statusCode == 401 {
                 throw APIError.unauthorized(parseMessage(from: data))
@@ -36,6 +40,21 @@ struct FlightsAPI {
             }
 
             let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let value = try container.decode(String.self)
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = formatter.date(from: value) {
+                    return date
+                }
+                formatter.formatOptions = [.withInternetDateTime]
+                if let date = formatter.date(from: value) {
+                    return date
+                }
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO8601 date: \(value)")
+            }
             do {
                 return try decoder.decode([Flight].self, from: data)
             } catch {
