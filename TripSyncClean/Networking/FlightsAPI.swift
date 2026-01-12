@@ -166,6 +166,7 @@ private struct FlightsResponse: Decodable {
 }
 
 struct AddFlightPayload: Encodable {
+    let airline: String
     let flightNumber: String
     let airlineCode: String
     let departureAirport: String
@@ -178,6 +179,7 @@ struct AddFlightPayload: Encodable {
     let pointsCost: Int?
 
     enum CodingKeys: String, CodingKey {
+        case airline
         case flightNumber
         case airlineCode
         case departureAirport
