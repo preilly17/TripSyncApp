@@ -1,73 +1,64 @@
 import SwiftUI
 
 struct LoginView: View {
-    let onLoginSuccess: (User) -> Void
-
-    @State private var usernameOrEmail = ""
+    @ObservedObject var viewModel: AuthViewModel
+    @State private var email = ""
     @State private var password = ""
-    @State private var isLoading = false
-    @State private var errorMessage: String?
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             VStack(spacing: 8) {
-                Text("Welcome Back")
+                Text("Welcome back")
                     .font(.title)
-                Text("Sign in to access your trips.")
-                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text("Log in to continue to your trips.")
                     .foregroundStyle(.secondary)
             }
 
-            VStack(alignment: .leading, spacing: 16) {
-                TextField("Username or Email", text: $usernameOrEmail)
+            VStack(spacing: 12) {
+                TextField("Email", text: $email)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .textFieldStyle(.roundedBorder)
 
                 SecureField("Password", text: $password)
+                    .textContentType(.password)
                     .textFieldStyle(.roundedBorder)
             }
 
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(.footnote)
+            if let loginError = viewModel.loginError {
+                Text(loginError)
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
             }
 
             Button {
                 Task {
-                    await signIn()
+                    await viewModel.login(email: email, password: password)
                 }
             } label: {
-                if isLoading {
+                if viewModel.isAuthenticating {
                     ProgressView()
+                        .frame(maxWidth: .infinity)
                 } else {
-                    Text("Sign In")
+                    Text("Log In")
                         .frame(maxWidth: .infinity)
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(isLoading || usernameOrEmail.isEmpty || password.isEmpty)
+            .disabled(viewModel.isAuthenticating || email.isEmpty || password.isEmpty)
+
+            Spacer()
         }
         .padding()
-    }
-
-    private func signIn() async {
-        guard !isLoading else { return }
-        isLoading = true
-        errorMessage = nil
-        do {
-            let api = try AuthAPI()
-            let user = try await api.login(usernameOrEmail: usernameOrEmail, password: password)
-            onLoginSuccess(user)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-        isLoading = false
+        .navigationTitle("Log In")
     }
 }
 
 #Preview {
-    LoginView { _ in }
+    NavigationStack {
+        LoginView(viewModel: AuthViewModel(client: nil))
+    }
 }
