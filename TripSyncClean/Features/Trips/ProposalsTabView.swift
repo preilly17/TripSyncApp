@@ -132,8 +132,7 @@ final class FlightProposalsViewModel: ObservableObject {
 
         do {
             let proposals = try await flightsAPI.fetchFlightProposals(tripId: tripId)
-            self.proposals = proposals
-            state = proposals.isEmpty ? .empty : .loaded(proposals)
+            applyProposals(proposals)
         } catch let error as APIError {
             proposals = []
             state = .error(error.errorDescription ?? "Unable to load proposals.")
@@ -156,11 +155,20 @@ final class FlightProposalsViewModel: ObservableObject {
         defer { cancelingProposalId = nil }
         try await flightsAPI.cancelFlightProposal(proposalId: proposalId)
 
-        let updated = proposals.filter { $0.id != proposalId }
-        self.proposals = updated
-        state = updated.isEmpty ? .empty : .loaded(updated)
+        removeProposal(withId: proposalId)
+        Task {
+            await loadProposals()
+        }
+    }
 
-        await loadProposals()
+    private func removeProposal(withId proposalId: Int) {
+        let updated = proposals.filter { $0.id != proposalId }
+        applyProposals(updated)
+    }
+
+    private func applyProposals(_ proposals: [FlightProposal]) {
+        self.proposals = proposals
+        state = proposals.isEmpty ? .empty : .loaded(proposals)
     }
 }
 
