@@ -15,6 +15,7 @@ struct FlightProposal: Identifiable, Decodable {
     let arriveDateTimeRaw: String?
     let pointsCost: Int?
     let proposedBy: String?
+    let canCancel: Bool?
 
     var displayTitle: String {
         let airlineText = airline?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -39,6 +40,16 @@ struct FlightProposal: Identifiable, Decodable {
 
     var arriveDate: Date? {
         arriveDateTime
+    }
+
+    var isFlightProposal: Bool {
+        flightId != nil
+            || hasText(airline)
+            || hasText(flightNumber)
+            || hasText(departAirportCode)
+            || hasText(arriveAirportCode)
+            || hasText(departAirportName)
+            || hasText(arriveAirportName)
     }
 
     private static let isoFormatter: ISO8601DateFormatter = {
@@ -115,6 +126,8 @@ struct FlightProposal: Identifiable, Decodable {
             Self.decodeUserName(from: container, key: .proposedByUser),
             Self.decodeUserName(from: container, key: .user)
         ])
+
+        canCancel = try? container.decodeIfPresent(Bool.self, forKey: .canCancel)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -144,6 +157,7 @@ struct FlightProposal: Identifiable, Decodable {
         case proposer
         case proposedByUser
         case user
+        case canCancel
     }
 
     private struct ProposedUser: Decodable {
@@ -251,5 +265,10 @@ struct FlightProposal: Identifiable, Decodable {
             }
         }
         return nil
+    }
+
+    private func hasText(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }

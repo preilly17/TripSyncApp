@@ -64,7 +64,7 @@ struct ProposalsTabView: View {
             await viewModel.refresh()
         }
         .confirmationDialog(
-            "Cancel flight proposal?",
+            "Cancel this proposal?",
             isPresented: Binding(
                 get: { proposalToCancel != nil },
                 set: { if !$0 { proposalToCancel = nil } }
@@ -88,6 +88,10 @@ struct ProposalsTabView: View {
     private func cancelProposal(_ proposal: FlightProposal) async {
         do {
             try await viewModel.cancelProposal(proposalId: proposal.id)
+            alertInfo = AlertInfo(
+                title: "Proposal Canceled",
+                message: "Your flight proposal was canceled."
+            )
         } catch let error as APIError {
             alertInfo = AlertInfo(
                 title: "Unable to Cancel",
@@ -105,6 +109,7 @@ struct ProposalsTabView: View {
 @MainActor
 final class FlightProposalsViewModel: ObservableObject {
     @Published var state: FlightProposalsState = .loading
+    @Published var proposals: [FlightProposal] = []
     @Published var cancelingProposalId: Int?
 
     private let tripId: Int
@@ -123,10 +128,13 @@ final class FlightProposalsViewModel: ObservableObject {
 
         do {
             let proposals = try await flightsAPI.fetchFlightProposals(tripId: tripId)
+            self.proposals = proposals
             state = proposals.isEmpty ? .empty : .loaded(proposals)
         } catch let error as APIError {
+            proposals = []
             state = .error(error.errorDescription ?? "Unable to load proposals.")
         } catch {
+            proposals = []
             state = .error(error.localizedDescription)
         }
     }
@@ -146,6 +154,7 @@ final class FlightProposalsViewModel: ObservableObject {
 
         if case .loaded(let proposals) = state {
             let updated = proposals.filter { $0.id != proposalId }
+            self.proposals = updated
             state = updated.isEmpty ? .empty : .loaded(updated)
         }
 
@@ -204,19 +213,21 @@ private struct FlightProposalCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            HStack {
-                Spacer()
-                Button {
-                    onCancel()
-                } label: {
-                    if isCanceling {
-                        ProgressView()
-                    } else {
-                        Text("Cancel")
+            if proposal.canCancel != false {
+                HStack {
+                    Spacer()
+                    Button {
+                        onCancel()
+                    } label: {
+                        if isCanceling {
+                            ProgressView()
+                        } else {
+                            Text("Cancel")
+                        }
                     }
+                    .buttonStyle(.bordered)
+                    .disabled(isCanceling)
                 }
-                .buttonStyle(.bordered)
-                .disabled(isCanceling)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
