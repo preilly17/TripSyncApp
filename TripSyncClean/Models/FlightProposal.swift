@@ -17,6 +17,9 @@ struct FlightProposal: Identifiable, Decodable {
     let proposedBy: String?
     let canCancel: Bool?
     let status: String?
+    var rankings: [FlightProposalRanking]
+    var currentUserRanking: FlightProposalRanking?
+    var averageRanking: Double?
     private let permissions: Permissions?
 
     var displayTitle: String {
@@ -152,6 +155,10 @@ struct FlightProposal: Identifiable, Decodable {
         permissions = try? container.decodeIfPresent(Permissions.self, forKey: .permissions)
         canCancel = permissions?.canCancel ?? (try? container.decodeIfPresent(Bool.self, forKey: .canCancel))
         status = try? container.decodeIfPresent(String.self, forKey: .status)
+
+        rankings = (try? container.decodeIfPresent([FlightProposalRanking].self, forKey: .rankings)) ?? []
+        currentUserRanking = Self.decodeCurrentUserRanking(from: container)
+        averageRanking = Self.decodeDouble(from: container, keys: [.averageRanking, .avgRanking, .averageRank])
     }
 
     enum CodingKeys: String, CodingKey {
@@ -184,6 +191,11 @@ struct FlightProposal: Identifiable, Decodable {
         case canCancel
         case status
         case permissions
+        case rankings
+        case currentUserRanking
+        case averageRanking
+        case avgRanking
+        case averageRank
     }
 
     private struct Permissions: Decodable {
@@ -234,6 +246,40 @@ struct FlightProposal: Identifiable, Decodable {
         }
         if let value = try? container.decodeIfPresent(String.self, forKey: key) {
             return Int(value)
+        }
+        return nil
+    }
+
+    private static func decodeDouble(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        keys: [CodingKeys]
+    ) -> Double? {
+        for key in keys {
+            if let value = try? container.decodeIfPresent(Double.self, forKey: key) {
+                return value
+            }
+            if let value = try? container.decodeIfPresent(Int.self, forKey: key) {
+                return Double(value)
+            }
+            if let value = try? container.decodeIfPresent(String.self, forKey: key) {
+                return Double(value)
+            }
+        }
+        return nil
+    }
+
+    private static func decodeCurrentUserRanking(
+        from container: KeyedDecodingContainer<CodingKeys>
+    ) -> FlightProposalRanking? {
+        if let ranking = try? container.decodeIfPresent(FlightProposalRanking.self, forKey: .currentUserRanking) {
+            return ranking
+        }
+        if let rankValue = try? container.decodeIfPresent(Int.self, forKey: .currentUserRanking) {
+            return FlightProposalRanking(id: nil, rank: rankValue, userId: nil, userName: nil)
+        }
+        if let rankValue = try? container.decodeIfPresent(String.self, forKey: .currentUserRanking),
+           let rank = Int(rankValue) {
+            return FlightProposalRanking(id: nil, rank: rank, userId: nil, userName: nil)
         }
         return nil
     }
@@ -300,5 +346,59 @@ struct FlightProposal: Identifiable, Decodable {
     private func hasText(_ value: String?) -> Bool {
         guard let value else { return false }
         return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+struct FlightProposalRanking: Decodable, Equatable {
+    let id: Int?
+    let rank: Int
+    let userId: Int?
+    let userName: String?
+
+    init(id: Int?, rank: Int, userId: Int?, userName: String?) {
+        self.id = id
+        self.rank = rank
+        self.userId = userId
+        self.userName = userName
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try? container.decodeIfPresent(Int.self, forKey: .id)
+
+        if let rankValue = try? container.decodeIfPresent(Int.self, forKey: .rank) {
+            rank = rankValue
+        } else if let rankValue = try? container.decodeIfPresent(Int.self, forKey: .ranking) {
+            rank = rankValue
+        } else if let rankValue = try? container.decodeIfPresent(Int.self, forKey: .position) {
+            rank = rankValue
+        } else if let rankValue = try? container.decodeIfPresent(String.self, forKey: .rank),
+                  let parsed = Int(rankValue) {
+            rank = parsed
+        } else if let rankValue = try? container.decodeIfPresent(String.self, forKey: .ranking),
+                  let parsed = Int(rankValue) {
+            rank = parsed
+        } else if let rankValue = try? container.decodeIfPresent(String.self, forKey: .position),
+                  let parsed = Int(rankValue) {
+            rank = parsed
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .rank, in: container, debugDescription: "Missing rank.")
+        }
+
+        userId = try? container.decodeIfPresent(Int.self, forKey: .userId)
+        userName = try? container.decodeIfPresent(String.self, forKey: .userName)
+    }
+
+    func updating(rank: Int) -> FlightProposalRanking {
+        FlightProposalRanking(id: id, rank: rank, userId: userId, userName: userName)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case rank
+        case ranking
+        case position
+        case userId
+        case userName
     }
 }
