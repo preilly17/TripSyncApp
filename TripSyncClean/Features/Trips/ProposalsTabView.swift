@@ -167,8 +167,9 @@ final class FlightProposalsViewModel: ObservableObject {
     }
 
     private func applyProposals(_ proposals: [FlightProposal]) {
-        self.proposals = proposals
-        state = proposals.isEmpty ? .empty : .loaded(proposals)
+        let filtered = proposals.filter { !$0.isCanceled }
+        self.proposals = filtered
+        state = filtered.isEmpty ? .empty : .loaded(filtered)
     }
 }
 
@@ -223,7 +224,17 @@ private struct FlightProposalCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            if proposal.canCancel != false {
+            if proposal.isCanceled {
+                Text("Canceled")
+                    .font(.footnote)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color(.systemGray5))
+                    )
+            } else if proposal.canCancel != false && proposal.isActive {
                 HStack {
                     Spacer()
                     Button {
