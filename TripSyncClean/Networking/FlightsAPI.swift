@@ -31,6 +31,7 @@ struct FlightsAPI {
             if let raw = String(data: data, encoding: .utf8) {
                 print("✈️ Flights raw response:", raw)
             }
+            logFlightJSONSample(data: data)
 #endif
             if httpResponse.statusCode == 401 {
                 throw APIError.unauthorized(parseMessage(from: data))
@@ -345,6 +346,33 @@ struct FlightsAPI {
         guard let sample = flights.first else { return }
         let airline = sample.airline ?? "Unknown Airline"
         print("✈️ Decoded flight sample id=\(sample.id), airline=\(airline)")
+#endif
+    }
+
+    private func logFlightJSONSample(data: Data) {
+#if DEBUG
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: data) else {
+            return
+        }
+        let flightObject: Any?
+        if let array = jsonObject as? [Any] {
+            flightObject = array.first
+        } else if let dictionary = jsonObject as? [String: Any] {
+            if let flights = dictionary["flights"] as? [Any] {
+                flightObject = flights.first
+            } else {
+                flightObject = dictionary
+            }
+        } else {
+            flightObject = nil
+        }
+        guard let flightObject else { return }
+        guard JSONSerialization.isValidJSONObject(flightObject),
+              let prettyData = try? JSONSerialization.data(withJSONObject: flightObject, options: [.prettyPrinted]),
+              let prettyString = String(data: prettyData, encoding: .utf8) else {
+            return
+        }
+        print("✈️ Flights sample JSON:\n\(prettyString)")
 #endif
     }
 }
