@@ -16,6 +16,7 @@ struct FlightProposal: Identifiable, Decodable {
     let pointsCost: Int?
     let proposedBy: String?
     let canCancel: Bool?
+    let status: String?
 
     var displayTitle: String {
         let airlineText = airline?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -40,6 +41,22 @@ struct FlightProposal: Identifiable, Decodable {
 
     var arriveDate: Date? {
         arriveDateTime
+    }
+
+    var normalizedStatus: String? {
+        status?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+
+    var isCanceled: Bool {
+        guard let normalizedStatus else { return false }
+        return normalizedStatus == "canceled" || normalizedStatus == "cancelled"
+    }
+
+    var isActive: Bool {
+        guard let normalizedStatus else { return true }
+        return normalizedStatus == "active"
     }
 
     var isFlightProposal: Bool {
@@ -128,6 +145,7 @@ struct FlightProposal: Identifiable, Decodable {
         ])
 
         canCancel = try? container.decodeIfPresent(Bool.self, forKey: .canCancel)
+        status = try? container.decodeIfPresent(String.self, forKey: .status)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -158,6 +176,7 @@ struct FlightProposal: Identifiable, Decodable {
         case proposedByUser
         case user
         case canCancel
+        case status
     }
 
     private struct ProposedUser: Decodable {
