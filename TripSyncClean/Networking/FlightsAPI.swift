@@ -95,8 +95,8 @@ struct FlightsAPI {
         try await sendCancellationRequest(path: path, method: "POST", body: nil)
     }
 
-    func createFlightProposalRanking(proposalId: Int, ranking: Int) async throws -> FlightProposalRanking? {
-        let path = "/api/flight-proposals/\(proposalId)/rankings"
+    func submitFlightProposalRanking(proposalId: Int, ranking: Int) async throws -> FlightProposalRanking? {
+        let path = "/api/flight-proposals/\(proposalId)/rank"
         let body = try encodedBody(
             FlightProposalRankingRequest(ranking: ranking),
             keyEncodingStrategy: .useDefaultKeys
@@ -104,21 +104,8 @@ struct FlightsAPI {
         return try await sendRankingRequest(path: path, method: "POST", body: body)
     }
 
-    func updateFlightProposalRanking(
-        proposalId: Int,
-        rankingId: Int,
-        ranking: Int
-    ) async throws -> FlightProposalRanking? {
-        let path = "/api/flight-proposals/\(proposalId)/rankings/\(rankingId)"
-        let body = try encodedBody(
-            FlightProposalRankingRequest(ranking: ranking),
-            keyEncodingStrategy: .useDefaultKeys
-        )
-        return try await sendRankingRequest(path: path, method: "PATCH", body: body)
-    }
-
-    func deleteFlightProposalRanking(proposalId: Int, rankingId: Int) async throws {
-        let path = "/api/flight-proposals/\(proposalId)/rankings/\(rankingId)"
+    func deleteFlightProposalRanking(proposalId: Int) async throws {
+        let path = "/api/flight-proposals/\(proposalId)/rank"
         _ = try await sendRankingRequest(path: path, method: "DELETE", body: nil)
     }
 
