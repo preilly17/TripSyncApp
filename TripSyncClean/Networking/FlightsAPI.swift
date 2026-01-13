@@ -96,13 +96,14 @@ struct FlightsAPI {
     }
 
     func fetchFlightProposals(tripId: Int) async throws -> [FlightProposal] {
-        let preferredPath = "/api/trips/\(tripId)/proposals"
+        let preferredPath = "/api/trips/\(tripId)/proposals/flights"
         do {
             return try await fetchProposals(path: preferredPath)
         } catch let error as APIError {
             if case .httpStatus(let statusCode, _) = error, statusCode == 404 || statusCode == 405 {
-                let fallbackPath = "/api/trips/\(tripId)/proposals/flights"
-                return try await fetchProposals(path: fallbackPath)
+                let fallbackPath = "/api/trips/\(tripId)/proposals"
+                let proposals = try await fetchProposals(path: fallbackPath)
+                return proposals.filter { $0.isFlightProposal }
             }
             throw error
         } catch {
