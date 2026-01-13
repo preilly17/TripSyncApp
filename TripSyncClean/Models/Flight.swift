@@ -3,6 +3,7 @@ import Foundation
 struct Flight: Identifiable, Decodable {
     let id: Int
     let airline: String?
+    let airlineCode: String?
     let flightNumber: String?
     let departAirportCode: String?
     let arriveAirportCode: String?
@@ -12,11 +13,19 @@ struct Flight: Identifiable, Decodable {
     let arriveDateTime: Date?
     let departDateTimeRaw: String?
     let arriveDateTimeRaw: String?
+    let duration: String?
+    let stops: Int?
+    let price: String?
+    let pointsCost: Int?
     let status: String?
+    let platform: String?
     let bookingSource: String?
 
     var displayTitle: String {
-        let airlineText = airline?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let airlineText = Self.firstNonEmpty([
+            airline,
+            airlineCode
+        ])
         let numberText = flightNumber?.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = [airlineText, numberText].compactMap { value -> String? in
             guard let value, !value.isEmpty else { return nil }
@@ -69,7 +78,26 @@ struct Flight: Identifiable, Decodable {
         let codeValue = code?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let nameValue = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !codeValue.isEmpty { return codeValue }
+        if let extracted = extractAirportCode(from: nameValue) {
+            return extracted
+        }
         return nameValue
+    }
+
+    private static func extractAirportCode(from value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if let openParen = trimmed.lastIndex(of: "("),
+           let closeParen = trimmed.lastIndex(of: ")"),
+           openParen < closeParen {
+            let codeRange = trimmed.index(after: openParen)..<closeParen
+            let code = trimmed[codeRange].trimmingCharacters(in: .whitespacesAndNewlines)
+            if !code.isEmpty {
+                return code
+            }
+        }
+        return nil
     }
 
     init(from decoder: Decoder) throws {
@@ -84,17 +112,27 @@ struct Flight: Identifiable, Decodable {
             try? container.decodeIfPresent(String.self, forKey: .carrierName),
             carrierName
         ])
+        airlineCode = Self.firstNonEmpty([
+            try? container.decodeIfPresent(String.self, forKey: .airlineCode),
+            carrier?.code
+        ])
 
         flightNumber = Self.firstNonEmpty([
             try? container.decodeIfPresent(String.self, forKey: .flightNumber),
             try? container.decodeIfPresent(String.self, forKey: .number)
         ])
 
-        let departAirport = Self.decodeAirport(from: container, keys: [.departAirportCode, .origin, .from])
+        let departAirport = Self.decodeAirport(
+            from: container,
+            keys: [.departAirportCode, .departureCode, .departureAirport, .origin, .from]
+        )
         departAirportCode = departAirport.code
         departAirportName = departAirport.name
 
-        let arriveAirport = Self.decodeAirport(from: container, keys: [.arriveAirportCode, .destination, .to])
+        let arriveAirport = Self.decodeAirport(
+            from: container,
+            keys: [.arriveAirportCode, .arrivalCode, .arrivalAirport, .destination, .to]
+        )
         arriveAirportCode = arriveAirport.code
         arriveAirportName = arriveAirport.name
 
@@ -105,19 +143,30 @@ struct Flight: Identifiable, Decodable {
         departDateTimeRaw = Self.decodeString(from: container, keys: [.departDateTime, .departureDatetime, .departureTime])
         arriveDateTimeRaw = Self.decodeString(from: container, keys: [.arriveDateTime, .arrivalDatetime, .arrivalTime])
 
+        duration = Self.decodeDuration(from: container, key: .duration)
+        stops = Self.decodeInt(from: container, key: .stops)
+        price = Self.decodePrice(from: container, key: .price)
+        pointsCost = Self.decodeInt(from: container, key: .pointsCost)
+
         status = try container.decodeIfPresent(String.self, forKey: .status)
+        platform = try container.decodeIfPresent(String.self, forKey: .platform)
         bookingSource = try container.decodeIfPresent(String.self, forKey: .bookingSource)
     }
 
     enum CodingKeys: String, CodingKey {
         case id
         case airline
+        case airlineCode
         case carrier
         case carrierName = "carrier_name"
         case flightNumber = "flight_number"
         case number
         case departAirportCode = "depart_airport_code"
         case arriveAirportCode = "arrive_airport_code"
+        case departureAirport
+        case departureCode
+        case arrivalAirport
+        case arrivalCode
         case origin
         case destination
         case from
@@ -128,7 +177,12 @@ struct Flight: Identifiable, Decodable {
         case arrivalDatetime = "arrival_datetime"
         case departureTime = "departure_time"
         case arrivalTime = "arrival_time"
+        case duration
+        case stops
+        case price
+        case pointsCost = "points_cost"
         case status
+        case platform
         case bookingSource = "booking_source"
     }
 
@@ -197,6 +251,83 @@ struct Flight: Identifiable, Decodable {
             }
         }
         return nil
+    }
+
+    private static func decodeInt(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        key: CodingKeys
+    ) -> Int? {
+        if let intValue = try? container.decodeIfPresent(Int.self, forKey: key) {
+            return intValue
+        }
+        if let stringValue = try? container.decodeIfPresent(String.self, forKey: key) {
+            let trimmed = stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            return Int(trimmed)
+        }
+        if let doubleValue = try? container.decodeIfPresent(Double.self, forKey: key) {
+            return Int(doubleValue)
+        }
+        return nil
+    }
+
+    private static func decodeDuration(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        key: CodingKeys
+    ) -> String? {
+        if let intValue = try? container.decodeIfPresent(Int.self, forKey: key) {
+            return formatDuration(minutes: intValue)
+        }
+        if let stringValue = try? container.decodeIfPresent(String.self, forKey: key) {
+            let trimmed = stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let numeric = Int(trimmed) {
+                return formatDuration(minutes: numeric)
+            }
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        if let doubleValue = try? container.decodeIfPresent(Double.self, forKey: key) {
+            return formatDuration(minutes: Int(doubleValue))
+        }
+        return nil
+    }
+
+    private static func formatDuration(minutes: Int) -> String {
+        guard minutes > 0 else { return "\(minutes)m" }
+        let hours = minutes / 60
+        let mins = minutes % 60
+        if hours > 0 && mins > 0 {
+            return "\(hours)h \(mins)m"
+        }
+        if hours > 0 {
+            return "\(hours)h"
+        }
+        return "\(mins)m"
+    }
+
+    private static func decodePrice(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        key: CodingKeys
+    ) -> String? {
+        if let stringValue = try? container.decodeIfPresent(String.self, forKey: key) {
+            let trimmed = stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        if let doubleValue = try? container.decodeIfPresent(Double.self, forKey: key) {
+            return formatPrice(doubleValue)
+        }
+        if let intValue = try? container.decodeIfPresent(Int.self, forKey: key) {
+            return formatPrice(Double(intValue))
+        }
+        return nil
+    }
+
+    private static func formatPrice(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = .current
+        if let formatted = formatter.string(from: NSNumber(value: value)) {
+            return formatted
+        }
+        return String(format: "%.2f", value)
     }
 
     private static func firstNonEmpty(_ values: [String?]) -> String? {

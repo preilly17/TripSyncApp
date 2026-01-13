@@ -176,6 +176,18 @@ private struct FlightRowCard: View {
         return formatter
     }()
 
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let isoFallbackFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -204,17 +216,44 @@ private struct FlightRowCard: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(timeRowTitle)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Text(timeRowValue)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+            HStack(alignment: .top, spacing: 24) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Departs")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text(formattedDate(flight.departDate, fallback: flight.departDateTimeRaw))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Arrives")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text(formattedDate(flight.arriveDate, fallback: flight.arriveDateTimeRaw))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
             }
 
-            if let bookingSource = flight.bookingSource, !bookingSource.isEmpty {
-                Text("Source: \(bookingSource)")
+            if !detailItems.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(detailItems, id: \.self) { item in
+                        Text(item)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(Color(.tertiarySystemBackground))
+                            )
+                    }
+                }
+            }
+
+            if let source = sourceText {
+                Text("Source: \(source)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -242,25 +281,61 @@ private struct FlightRowCard: View {
         )
     }
 
-    private var timeRowTitle: String {
-        let route = flight.routeText
-        return route.isEmpty ? "Depart → Arrive" : route
-    }
-
-    private var timeRowValue: String {
-        let departText = formattedDate(flight.departDate, fallback: flight.departDateTimeRaw)
-        let arriveText = formattedDate(flight.arriveDate, fallback: flight.arriveDateTimeRaw)
-        return "\(departText) → \(arriveText)"
-    }
-
     private func formattedDate(_ date: Date?, fallback: String?) -> String {
         if let date {
             return Self.dateFormatter.string(from: date)
         }
         if let fallback, !fallback.isEmpty {
+            if let parsed = parseDate(from: fallback) {
+                return Self.dateFormatter.string(from: parsed)
+            }
             return fallback
         }
         return "TBD"
+    }
+
+    private func parseDate(from value: String) -> Date? {
+        if let date = Self.isoFormatter.date(from: value) {
+            return date
+        }
+        return Self.isoFallbackFormatter.date(from: value)
+    }
+
+    private var sourceText: String? {
+        if let bookingSource = flight.bookingSource,
+           !bookingSource.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return bookingSource
+        }
+        if let platform = flight.platform,
+           !platform.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return platform
+        }
+        return nil
+    }
+
+    private var detailItems: [String] {
+        var items: [String] = []
+        if let duration = flight.duration, !duration.isEmpty {
+            items.append("Duration \(duration)")
+        }
+        if let stops = flight.stops {
+            let label: String
+            if stops == 0 {
+                label = "Nonstop"
+            } else if stops == 1 {
+                label = "1 stop"
+            } else {
+                label = "\(stops) stops"
+            }
+            items.append(label)
+        }
+        if let pointsCost = flight.pointsCost {
+            items.append("Points \(pointsCost)")
+        }
+        if let price = flight.price, !price.isEmpty {
+            items.append("Price \(price)")
+        }
+        return items
     }
 }
 
