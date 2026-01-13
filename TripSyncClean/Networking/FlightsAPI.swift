@@ -95,6 +95,33 @@ struct FlightsAPI {
         try await sendCancellationRequest(path: path, method: "POST", body: nil)
     }
 
+    func createFlightProposalRanking(proposalId: Int, ranking: Int) async throws -> FlightProposalRanking? {
+        let path = "/api/flight-proposals/\(proposalId)/rankings"
+        let body = try encodedBody(
+            FlightProposalRankingRequest(ranking: ranking),
+            keyEncodingStrategy: .useDefaultKeys
+        )
+        return try await sendRankingRequest(path: path, method: "POST", body: body)
+    }
+
+    func updateFlightProposalRanking(
+        proposalId: Int,
+        rankingId: Int,
+        ranking: Int
+    ) async throws -> FlightProposalRanking? {
+        let path = "/api/flight-proposals/\(proposalId)/rankings/\(rankingId)"
+        let body = try encodedBody(
+            FlightProposalRankingRequest(ranking: ranking),
+            keyEncodingStrategy: .useDefaultKeys
+        )
+        return try await sendRankingRequest(path: path, method: "PATCH", body: body)
+    }
+
+    func deleteFlightProposalRanking(proposalId: Int, rankingId: Int) async throws {
+        let path = "/api/flight-proposals/\(proposalId)/rankings/\(rankingId)"
+        _ = try await sendRankingRequest(path: path, method: "DELETE", body: nil)
+    }
+
     func fetchFlightProposals(tripId: Int) async throws -> [FlightProposal] {
         let preferredPath = "/api/trips/\(tripId)/proposals/flights"
         do {
@@ -224,6 +251,51 @@ struct FlightsAPI {
         return nil
     }
 
+    private func sendRankingRequest(path: String, method: String, body: Data?) async throws -> FlightProposalRanking? {
+        guard let url = URL(string: path, relativeTo: client.baseURL) else {
+            throw APIError.invalidURL(path)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.httpBody = body
+        if body != nil {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+
+        do {
+            let (data, response) = try await client.session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+#if DEBUG
+            let urlString = request.url?.absoluteString ?? "unknown URL"
+            let method = request.httpMethod ?? "GET"
+            print("FlightsAPI \(method) \(urlString) -> \(httpResponse.statusCode)")
+#endif
+            if httpResponse.statusCode == 401 {
+                throw APIError.unauthorized(parseMessage(from: data))
+            }
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                throw APIError.httpStatus(httpResponse.statusCode, parseMessage(from: data))
+            }
+
+            guard !data.isEmpty else { return nil }
+            let decoder = makeDecoder()
+            if let ranking = try? decoder.decode(FlightProposalRanking.self, from: data) {
+                return ranking
+            }
+            if let wrapped = try? decoder.decode(FlightProposalRankingResponse.self, from: data) {
+                return wrapped.ranking
+            }
+            return nil
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw APIError.transport(error)
+        }
+    }
+
     private func fetchProposals(path: String) async throws -> [FlightProposal] {
         guard let url = URL(string: path, relativeTo: client.baseURL) else {
             throw APIError.invalidURL(path)
@@ -351,6 +423,14 @@ struct AddFlightPayload: Encodable {
 
 private struct ProposeFlightRequest: Encodable {
     let flightId: Int
+}
+
+private struct FlightProposalRankingRequest: Encodable {
+    let ranking: Int
+}
+
+private struct FlightProposalRankingResponse: Decodable {
+    let ranking: FlightProposalRanking?
 }
 
 /*
