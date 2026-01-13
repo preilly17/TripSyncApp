@@ -17,6 +17,7 @@ struct FlightProposal: Identifiable, Decodable {
     let proposedBy: String?
     let canCancel: Bool?
     let status: String?
+    private let permissions: Permissions?
 
     var displayTitle: String {
         let airlineText = airline?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -57,6 +58,10 @@ struct FlightProposal: Identifiable, Decodable {
     var isActive: Bool {
         guard let normalizedStatus else { return true }
         return normalizedStatus == "active"
+    }
+
+    var canShowCancel: Bool {
+        canCancel == true && !isCanceled
     }
 
     var isFlightProposal: Bool {
@@ -144,7 +149,8 @@ struct FlightProposal: Identifiable, Decodable {
             Self.decodeUserName(from: container, key: .user)
         ])
 
-        canCancel = try? container.decodeIfPresent(Bool.self, forKey: .canCancel)
+        permissions = try? container.decodeIfPresent(Permissions.self, forKey: .permissions)
+        canCancel = permissions?.canCancel ?? (try? container.decodeIfPresent(Bool.self, forKey: .canCancel))
         status = try? container.decodeIfPresent(String.self, forKey: .status)
     }
 
@@ -177,6 +183,11 @@ struct FlightProposal: Identifiable, Decodable {
         case user
         case canCancel
         case status
+        case permissions
+    }
+
+    private struct Permissions: Decodable {
+        let canCancel: Bool?
     }
 
     private struct ProposedUser: Decodable {

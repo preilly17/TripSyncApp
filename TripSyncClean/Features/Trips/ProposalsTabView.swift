@@ -234,7 +234,7 @@ private struct FlightProposalCard: View {
                         Capsule()
                             .fill(Color(.systemGray5))
                     )
-            } else if proposal.canCancel != false && proposal.isActive {
+            } else if proposal.canShowCancel {
                 HStack {
                     Spacer()
                     Button {
