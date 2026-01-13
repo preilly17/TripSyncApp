@@ -223,25 +223,17 @@ final class FlightProposalsViewModel: ObservableObject {
 
         do {
             if let ranking {
-                if let rankingId = originalProposal.currentUserRanking?.id {
-                    if let updatedRanking = try await flightsAPI.updateFlightProposalRanking(
-                        proposalId: proposalId,
-                        rankingId: rankingId,
-                        ranking: ranking
-                    ) {
-                        updateProposalRanking(proposalId: proposalId, ranking: updatedRanking)
-                    }
-                } else if let newRanking = try await flightsAPI.createFlightProposalRanking(
+                if let updatedRanking = try await flightsAPI.submitFlightProposalRanking(
                     proposalId: proposalId,
                     ranking: ranking
                 ) {
-                    updateProposalRanking(proposalId: proposalId, ranking: newRanking)
+                    updateProposalRanking(proposalId: proposalId, ranking: updatedRanking)
+                } else {
+                    await loadProposals()
                 }
-            } else if let rankingId = originalProposal.currentUserRanking?.id {
-                try await flightsAPI.deleteFlightProposalRanking(
-                    proposalId: proposalId,
-                    rankingId: rankingId
-                )
+            } else if originalProposal.currentUserRanking != nil {
+                try await flightsAPI.deleteFlightProposalRanking(proposalId: proposalId)
+                await loadProposals()
             }
         } catch {
             applyProposals(originalProposals)
