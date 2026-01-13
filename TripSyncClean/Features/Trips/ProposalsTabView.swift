@@ -154,13 +154,11 @@ final class FlightProposalsViewModel: ObservableObject {
 
         cancelingProposalId = proposalId
         defer { cancelingProposalId = nil }
-        try await flightsAPI.cancelFlightProposal(tripId: tripId, proposalId: proposalId)
+        try await flightsAPI.cancelFlightProposal(proposalId: proposalId)
 
-        if case .loaded(let proposals) = state {
-            let updated = proposals.filter { $0.id != proposalId }
-            self.proposals = updated
-            state = updated.isEmpty ? .empty : .loaded(updated)
-        }
+        let updated = proposals.filter { $0.id != proposalId }
+        self.proposals = updated
+        state = updated.isEmpty ? .empty : .loaded(updated)
 
         await loadProposals()
     }

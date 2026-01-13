@@ -153,7 +153,7 @@ final class FlightsViewModel: ObservableObject {
             throw APIError.invalidResponse
         }
 
-        try await flightsAPI.cancelFlightProposal(tripId: tripId, proposalId: proposalId)
+        try await flightsAPI.cancelFlightProposal(proposalId: proposalId)
     }
 }
 
