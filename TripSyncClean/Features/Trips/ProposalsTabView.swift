@@ -35,6 +35,8 @@ struct ProposalsTabView: View {
                             FlightProposalCard(
                                 proposal: proposal,
                                 isCanceling: viewModel.cancelingProposalId == proposal.id,
+                                isVoting: viewModel.votingProposalIds.contains(proposal.id),
+                                currentUser: viewModel.currentUser,
                                 onVote: { proposalToVote = proposal }
                             ) {
                                 proposalToCancel = proposal
@@ -64,6 +66,9 @@ struct ProposalsTabView: View {
         }
         .refreshable {
             await viewModel.refresh()
+        }
+        .task {
+            await viewModel.loadCurrentUser()
         }
         .confirmationDialog(
             "Cancel this proposal?",
@@ -119,15 +124,15 @@ struct ProposalsTabView: View {
             let message: String
             switch error {
             case .httpStatus(let statusCode, _):
-                message = "Status code: \(statusCode)."
+                message = "We couldn't cancel that proposal. Please try again."
             default:
-                message = error.errorDescription ?? "Something went wrong while canceling the proposal."
+                message = "We couldn't cancel that proposal. Please try again."
             }
             alertInfo = AlertInfo(title: "Unable to Cancel", message: message)
         } catch {
             alertInfo = AlertInfo(
                 title: "Unable to Cancel",
-                message: error.localizedDescription
+                message: "We couldn't cancel that proposal. Please try again."
             )
         }
     }
@@ -140,15 +145,15 @@ struct ProposalsTabView: View {
             let message: String
             switch error {
             case .httpStatus(let statusCode, _):
-                message = "Status code: \(statusCode)."
+                message = "We couldn't save your vote. Please try again."
             default:
-                message = error.errorDescription ?? "Something went wrong while submitting the vote."
+                message = "We couldn't save your vote. Please try again."
             }
             alertInfo = AlertInfo(title: "Unable to Vote", message: message)
         } catch {
             alertInfo = AlertInfo(
                 title: "Unable to Vote",
-                message: error.localizedDescription
+                message: "We couldn't save your vote. Please try again."
             )
         }
     }
@@ -159,13 +164,26 @@ final class FlightProposalsViewModel: ObservableObject {
     @Published var state: FlightProposalsState = .loading
     @Published var proposals: [FlightProposal] = []
     @Published var cancelingProposalId: Int?
+    @Published var votingProposalIds: Set<Int> = []
+    @Published var currentUser: User?
 
     private let tripId: Int
     private let flightsAPI: FlightsAPI?
+    private let authAPI: AuthAPI?
 
     init(tripId: Int, flightsAPI: FlightsAPI?) {
         self.tripId = tripId
         self.flightsAPI = flightsAPI
+        self.authAPI = try? AuthAPI()
+    }
+
+    func loadCurrentUser() async {
+        guard let authAPI else { return }
+        do {
+            currentUser = try await authAPI.currentUser()
+        } catch {
+            currentUser = nil
+        }
     }
 
     func loadProposals() async {
@@ -176,13 +194,13 @@ final class FlightProposalsViewModel: ObservableObject {
 
         do {
             let proposals = try await flightsAPI.fetchFlightProposals(tripId: tripId)
-            applyProposals(proposals)
+            applyProposals(proposals, animated: true)
         } catch let error as APIError {
             proposals = []
-            state = .error(error.errorDescription ?? "Unable to load proposals.")
+            state = .error(userFacingMessage(for: error, fallback: "Unable to load proposals."))
         } catch {
             proposals = []
-            state = .error(error.localizedDescription)
+            state = .error("Unable to load proposals.")
         }
     }
 
@@ -219,7 +237,8 @@ final class FlightProposalsViewModel: ObservableObject {
         let updatedProposal = applyRankingChange(to: originalProposal, ranking: ranking)
         var updatedProposals = proposals
         updatedProposals[index] = updatedProposal
-        applyProposals(updatedProposals)
+        applyProposals(updatedProposals, animated: true)
+        votingProposalIds.insert(proposalId)
 
         do {
             if let ranking {
@@ -235,30 +254,41 @@ final class FlightProposalsViewModel: ObservableObject {
                 try await flightsAPI.deleteFlightProposalRanking(proposalId: proposalId)
                 await loadProposals()
             }
+            votingProposalIds.remove(proposalId)
         } catch {
-            applyProposals(originalProposals)
+            votingProposalIds.remove(proposalId)
+            applyProposals(originalProposals, animated: true)
             throw error
         }
     }
 
     private func removeProposal(withId proposalId: Int) {
         let updated = proposals.filter { $0.id != proposalId }
-        applyProposals(updated)
+        applyProposals(updated, animated: true)
     }
 
-    private func applyProposals(_ proposals: [FlightProposal]) {
+    private func applyProposals(_ proposals: [FlightProposal], animated: Bool = false) {
         let filtered = proposals.filter { !$0.isCanceled }
         let sorted = sortProposals(filtered)
-        self.proposals = sorted
-        state = sorted.isEmpty ? .empty : .loaded(sorted)
+        let applyChanges = {
+            self.proposals = sorted
+            self.state = sorted.isEmpty ? .empty : .loaded(sorted)
+        }
+        if animated {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                applyChanges()
+            }
+        } else {
+            applyChanges()
+        }
     }
 
     private func sortProposals(_ proposals: [FlightProposal]) -> [FlightProposal] {
         proposals.sorted { lhs, rhs in
-            let leftValue = lhs.averageRanking ?? Double.greatestFiniteMagnitude
-            let rightValue = rhs.averageRanking ?? Double.greatestFiniteMagnitude
+            let leftValue = lhs.displayAverageRanking ?? Double.greatestFiniteMagnitude
+            let rightValue = rhs.displayAverageRanking ?? Double.greatestFiniteMagnitude
             if leftValue == rightValue {
-                return lhs.id < rhs.id
+                return lhs.id > rhs.id
             }
             return leftValue < rightValue
         }
@@ -311,13 +341,28 @@ final class FlightProposalsViewModel: ObservableObject {
         proposal.averageRanking = averageRanking(from: updatedRankings)
         var updatedProposals = proposals
         updatedProposals[index] = proposal
-        applyProposals(updatedProposals)
+        applyProposals(updatedProposals, animated: true)
     }
 
     private func averageRanking(from rankings: [FlightProposalRanking]) -> Double? {
         guard !rankings.isEmpty else { return nil }
         let total = rankings.reduce(0) { $0 + $1.rank }
         return Double(total) / Double(rankings.count)
+    }
+
+    private func userFacingMessage(for error: APIError, fallback: String) -> String {
+        switch error {
+        case .missingConfiguration:
+            return fallback
+        case .invalidBaseURL, .invalidURL, .invalidResponse:
+            return fallback
+        case .unauthorized:
+            return "Please sign in again to view proposals."
+        case .httpStatus:
+            return fallback
+        case .decoding, .transport:
+            return fallback
+        }
     }
 }
 
@@ -331,6 +376,8 @@ enum FlightProposalsState {
 private struct FlightProposalCard: View {
     let proposal: FlightProposal
     let isCanceling: Bool
+    let isVoting: Bool
+    let currentUser: User?
     let onVote: () -> Void
     let onCancel: () -> Void
 
@@ -367,7 +414,7 @@ private struct FlightProposalCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            if let proposedBy = proposal.proposedBy, !proposedBy.isEmpty {
+            if let proposedBy = proposal.proposerDisplayName(currentUser: currentUser) {
                 Text("Proposed by \(proposedBy)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -420,14 +467,19 @@ private struct FlightProposalCard: View {
                 Text(voteButtonTitle)
             }
             .buttonStyle(.bordered)
+            .disabled(isVoting)
 
             Spacer()
+
+            if isVoting {
+                ProgressView()
+            }
 
             Text("Avg: \(averageText)")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
-            if proposal.averageRanking == 1 {
+            if proposal.displayAverageRanking.map(isTopChoice) == true {
                 Text("Top Choice")
                     .font(.caption)
                     .fontWeight(.semibold)
@@ -455,7 +507,7 @@ private struct FlightProposalCard: View {
     }
 
     private var averageText: String {
-        guard let average = proposal.averageRanking else { return "—" }
+        guard let average = proposal.displayAverageRanking else { return "—" }
         return String(format: "%.1f", average)
     }
 
@@ -473,6 +525,10 @@ private struct FlightProposalCard: View {
             return fallback
         }
         return "TBD"
+    }
+
+    private func isTopChoice(average: Double) -> Bool {
+        abs(average - 1.0) < 0.05
     }
 }
 
