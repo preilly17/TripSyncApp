@@ -90,9 +90,9 @@ struct FlightsAPI {
         try await sendRequest(path: path, method: "POST", body: body)
     }
 
-    func cancelFlightProposal(tripId: Int, proposalId: Int) async throws {
-        let path = "/api/trips/\(tripId)/proposals/\(proposalId)"
-        try await sendCancellationRequest(path: path, method: "DELETE", body: nil)
+    func cancelFlightProposal(proposalId: Int) async throws {
+        let path = "/api/flight-proposals/\(proposalId)/cancel"
+        try await sendCancellationRequest(path: path, method: "POST", body: nil)
     }
 
     func fetchFlightProposals(tripId: Int) async throws -> [FlightProposal] {
@@ -195,7 +195,8 @@ struct FlightsAPI {
             print("FlightsAPI \(method) \(urlString) -> \(httpResponse.statusCode)")
 #endif
             if httpResponse.statusCode == 401 {
-                throw APIError.unauthorized(parseMessage(from: data))
+                let message = cancellationErrorMessage(from: data, response: httpResponse)
+                throw APIError.unauthorized(message)
             }
             guard (200..<300).contains(httpResponse.statusCode) else {
                 let message = cancellationErrorMessage(from: data, response: httpResponse)
