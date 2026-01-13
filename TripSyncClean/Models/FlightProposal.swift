@@ -15,6 +15,7 @@ struct FlightProposal: Identifiable, Decodable {
     let arriveDateTimeRaw: String?
     let pointsCost: Int?
     let proposedBy: String?
+    private let proposerProfile: ProposedUser?
     let canCancel: Bool?
     let status: String?
     var rankings: [FlightProposalRanking]
@@ -65,6 +66,22 @@ struct FlightProposal: Identifiable, Decodable {
 
     var canShowCancel: Bool {
         canCancel == true && !isCanceled
+    }
+
+    var displayAverageRanking: Double? {
+        averageRanking ?? computedAverageRanking
+    }
+
+    func proposerDisplayName(currentUser: User?) -> String? {
+        if let currentUser, isProposedByCurrentUser(currentUser) {
+            return "you"
+        }
+
+        if let name = proposerProfile?.displayName {
+            return name
+        }
+
+        return sanitizedProposedBy
     }
 
     var isFlightProposal: Bool {
@@ -152,6 +169,8 @@ struct FlightProposal: Identifiable, Decodable {
             Self.decodeUserName(from: container, key: .user)
         ])
 
+        proposerProfile = Self.decodeProposer(from: container)
+
         permissions = try? container.decodeIfPresent(Permissions.self, forKey: .permissions)
         canCancel = permissions?.canCancel ?? (try? container.decodeIfPresent(Bool.self, forKey: .canCancel))
         status = try? container.decodeIfPresent(String.self, forKey: .status)
@@ -208,6 +227,20 @@ struct FlightProposal: Identifiable, Decodable {
         let firstName: String?
         let lastName: String?
         let email: String?
+
+        var displayName: String? {
+            let combined = [firstName, lastName]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            if !combined.isEmpty {
+                return combined
+            }
+            if let username = username?.trimmingCharacters(in: .whitespacesAndNewlines), !username.isEmpty {
+                return username
+            }
+            return nil
+        }
     }
 
     private static func decodeUserName(
@@ -233,6 +266,21 @@ struct FlightProposal: Identifiable, Decodable {
         }
         if let email = user.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
             return email
+        }
+        return nil
+    }
+
+    private static func decodeProposer(
+        from container: KeyedDecodingContainer<CodingKeys>
+    ) -> ProposedUser? {
+        if let proposer = try? container.decodeIfPresent(ProposedUser.self, forKey: .proposer) {
+            return proposer
+        }
+        if let proposer = try? container.decodeIfPresent(ProposedUser.self, forKey: .proposedByUser) {
+            return proposer
+        }
+        if let proposer = try? container.decodeIfPresent(ProposedUser.self, forKey: .user) {
+            return proposer
         }
         return nil
     }
@@ -346,6 +394,57 @@ struct FlightProposal: Identifiable, Decodable {
     private func hasText(_ value: String?) -> Bool {
         guard let value else { return false }
         return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var computedAverageRanking: Double? {
+        guard !rankings.isEmpty else { return nil }
+        let total = rankings.reduce(0) { $0 + $1.rank }
+        return Double(total) / Double(rankings.count)
+    }
+
+    private var sanitizedProposedBy: String? {
+        guard let proposedBy else { return nil }
+        let trimmed = proposedBy.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.contains("@") {
+            return nil
+        }
+        if trimmed.contains("|") {
+            return nil
+        }
+        if trimmed.lowercased().hasPrefix("user_") {
+            return nil
+        }
+        if UUID(uuidString: trimmed) != nil {
+            return nil
+        }
+        return trimmed
+    }
+
+    private func isProposedByCurrentUser(_ currentUser: User) -> Bool {
+        if let proposerEmail = proposerProfile?.email?.lowercased(),
+           proposerEmail == currentUser.email.lowercased() {
+            return true
+        }
+
+        if let proposerUsername = proposerProfile?.username?.lowercased(),
+           let username = currentUser.username?.lowercased(),
+           proposerUsername == username {
+            return true
+        }
+
+        if let proposedBy = proposedBy?.lowercased(),
+           let username = currentUser.username?.lowercased(),
+           proposedBy == username {
+            return true
+        }
+
+        if let proposedBy = proposedBy?.lowercased(),
+           proposedBy == currentUser.email.lowercased() {
+            return true
+        }
+
+        return false
     }
 }
 
