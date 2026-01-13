@@ -93,10 +93,14 @@ struct ProposalsTabView: View {
                 message: "Your flight proposal was canceled."
             )
         } catch let error as APIError {
-            alertInfo = AlertInfo(
-                title: "Unable to Cancel",
-                message: error.errorDescription ?? "Something went wrong while canceling the proposal."
-            )
+            let message: String
+            switch error {
+            case .httpStatus(let statusCode, _):
+                message = "Status code: \(statusCode)."
+            default:
+                message = error.errorDescription ?? "Something went wrong while canceling the proposal."
+            }
+            alertInfo = AlertInfo(title: "Unable to Cancel", message: message)
         } catch {
             alertInfo = AlertInfo(
                 title: "Unable to Cancel",
