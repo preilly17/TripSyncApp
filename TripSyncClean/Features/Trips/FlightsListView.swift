@@ -176,18 +176,6 @@ private struct FlightRowCard: View {
         return formatter
     }()
 
-    private static let isoFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static let isoFallbackFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -221,7 +209,7 @@ private struct FlightRowCard: View {
                     Text("Departs")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Text(formattedDate(flight.departDate, fallback: flight.departDateTimeRaw))
+                    Text(formattedDate(flight.departureDate))
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
@@ -230,10 +218,16 @@ private struct FlightRowCard: View {
                     Text("Arrives")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Text(formattedDate(flight.arriveDate, fallback: flight.arriveDateTimeRaw))
+                    Text(formattedDate(flight.arrivalDate))
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
+            }
+
+            if let durationStopsText {
+                Text(durationStopsText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             if !detailItems.isEmpty {
@@ -281,30 +275,15 @@ private struct FlightRowCard: View {
         )
     }
 
-    private func formattedDate(_ date: Date?, fallback: String?) -> String {
-        if let date {
-            return Self.dateFormatter.string(from: date)
-        }
-        if let fallback, !fallback.isEmpty {
-            if let parsed = parseDate(from: fallback) {
-                return Self.dateFormatter.string(from: parsed)
-            }
-            return fallback
-        }
-        return "TBD"
-    }
-
-    private func parseDate(from value: String) -> Date? {
-        if let date = Self.isoFormatter.date(from: value) {
-            return date
-        }
-        return Self.isoFallbackFormatter.date(from: value)
+    private func formattedDate(_ date: Date?) -> String {
+        guard let date else { return "TBD" }
+        return Self.dateFormatter.string(from: date)
     }
 
     private var sourceText: String? {
-        if let bookingSource = flight.bookingSource,
-           !bookingSource.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return bookingSource
+        if let bookingUrl = flight.bookingUrl,
+           !bookingUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return bookingUrl
         }
         if let platform = flight.platform,
            !platform.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -313,10 +292,10 @@ private struct FlightRowCard: View {
         return nil
     }
 
-    private var detailItems: [String] {
-        var items: [String] = []
+    private var durationStopsText: String? {
+        var parts: [String] = []
         if let duration = flight.duration, !duration.isEmpty {
-            items.append("Duration \(duration)")
+            parts.append(duration)
         }
         if let stops = flight.stops {
             let label: String
@@ -327,8 +306,13 @@ private struct FlightRowCard: View {
             } else {
                 label = "\(stops) stops"
             }
-            items.append(label)
+            parts.append(label)
         }
+        return parts.isEmpty ? nil : parts.joined(separator: " • ")
+    }
+
+    private var detailItems: [String] {
+        var items: [String] = []
         if let pointsCost = flight.pointsCost {
             items.append("Points \(pointsCost)")
         }

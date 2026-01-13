@@ -118,7 +118,24 @@ struct FlightProposal: Identifiable, Decodable {
         let codeValue = code?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let nameValue = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !codeValue.isEmpty { return codeValue }
+        if let extracted = extractAirportCode(from: nameValue) {
+            return extracted
+        }
         return nameValue
+    }
+
+    private static func extractAirportCode(from value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard let openParen = trimmed.lastIndex(of: "("),
+              let closeParen = trimmed.lastIndex(of: ")"),
+              openParen < closeParen else {
+            return nil
+        }
+        let codeRange = trimmed.index(after: openParen)..<closeParen
+        let code = trimmed[codeRange].trimmingCharacters(in: .whitespacesAndNewlines)
+        return code.isEmpty ? nil : code
     }
 
     init(from decoder: Decoder) throws {
@@ -144,19 +161,19 @@ struct FlightProposal: Identifiable, Decodable {
         let departAirport = Self.decodeAirport(from: container, keys: [.departAirportCode, .origin, .from])
         let arriveAirport = Self.decodeAirport(from: container, keys: [.arriveAirportCode, .destination, .to])
 
-        departAirportCode = departAirport.code ?? nestedFlight?.departAirportCode
-        departAirportName = departAirport.name ?? nestedFlight?.departAirportName
-        arriveAirportCode = arriveAirport.code ?? nestedFlight?.arriveAirportCode
-        arriveAirportName = arriveAirport.name ?? nestedFlight?.arriveAirportName
+        departAirportCode = departAirport.code ?? nestedFlight?.departureCode
+        departAirportName = departAirport.name ?? nestedFlight?.departureAirport
+        arriveAirportCode = arriveAirport.code ?? nestedFlight?.arrivalCode
+        arriveAirportName = arriveAirport.name ?? nestedFlight?.arrivalAirport
 
         let departDate = Self.decodeDate(from: container, keys: [.departDateTime, .departureDatetime, .departureTime])
         let arriveDate = Self.decodeDate(from: container, keys: [.arriveDateTime, .arrivalDatetime, .arrivalTime])
-        departDateTime = departDate ?? nestedFlight?.departDateTime
-        arriveDateTime = arriveDate ?? nestedFlight?.arriveDateTime
+        departDateTime = departDate ?? nestedFlight?.departureDate
+        arriveDateTime = arriveDate ?? nestedFlight?.arrivalDate
         departDateTimeRaw = Self.decodeString(from: container, keys: [.departDateTime, .departureDatetime, .departureTime])
-            ?? nestedFlight?.departDateTimeRaw
+            ?? nestedFlight?.departureTimeRaw
         arriveDateTimeRaw = Self.decodeString(from: container, keys: [.arriveDateTime, .arrivalDatetime, .arrivalTime])
-            ?? nestedFlight?.arriveDateTimeRaw
+            ?? nestedFlight?.arrivalTimeRaw
 
         pointsCost = Self.decodePoints(from: container, key: .pointsCost)
 
