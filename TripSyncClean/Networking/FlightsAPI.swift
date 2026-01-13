@@ -91,8 +91,8 @@ struct FlightsAPI {
     }
 
     func cancelFlightProposal(tripId: Int, proposalId: Int) async throws {
-        let path = "/api/trips/\(tripId)/proposals/flights/\(proposalId)"
-        try await sendRequest(path: path, method: "DELETE", body: nil)
+        let path = "/api/trips/\(tripId)/proposals/\(proposalId)"
+        try await sendCancellationRequest(path: path, method: "DELETE", body: nil)
     }
 
     func fetchFlightProposals(tripId: Int) async throws -> [FlightProposal] {
@@ -170,6 +170,57 @@ struct FlightsAPI {
         } catch {
             throw APIError.transport(error)
         }
+    }
+
+    private func sendCancellationRequest(path: String, method: String, body: Data?) async throws {
+        guard let url = URL(string: path, relativeTo: client.baseURL) else {
+            throw APIError.invalidURL(path)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.httpBody = body
+        if body != nil {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+
+        do {
+            let (data, response) = try await client.session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+#if DEBUG
+            let urlString = request.url?.absoluteString ?? "unknown URL"
+            let method = request.httpMethod ?? "GET"
+            print("FlightsAPI \(method) \(urlString) -> \(httpResponse.statusCode)")
+#endif
+            if httpResponse.statusCode == 401 {
+                throw APIError.unauthorized(parseMessage(from: data))
+            }
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                let message = cancellationErrorMessage(from: data, response: httpResponse)
+                throw APIError.httpStatus(httpResponse.statusCode, message)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw APIError.transport(error)
+        }
+    }
+
+    private func cancellationErrorMessage(from data: Data, response: HTTPURLResponse) -> String? {
+        guard !data.isEmpty else { return nil }
+        let contentType = response.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+        let isJSON = contentType.contains("application/json") || contentType.contains("application/problem+json")
+        if isJSON {
+            return parseMessage(from: data)
+        }
+#if DEBUG
+        if let raw = String(data: data, encoding: .utf8) {
+            print("✈️ FlightsAPI cancel non-JSON response:", raw)
+        }
+#endif
+        return nil
     }
 
     private func fetchProposals(path: String) async throws -> [FlightProposal] {
