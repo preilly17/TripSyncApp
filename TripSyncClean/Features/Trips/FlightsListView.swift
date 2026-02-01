@@ -5,6 +5,7 @@ struct FlightsListView: View {
     @StateObject private var viewModel: FlightsViewModel
     @State private var showingAddFlightSheet = false
     @State private var alertInfo: AlertInfo?
+    @State private var selectedFlight: Flight?
 
     init(tripId: Int, flightsAPI: FlightsAPI? = nil) {
         let resolvedAPI = flightsAPI ?? (try? FlightsAPI())
@@ -34,6 +35,8 @@ struct FlightsListView: View {
                             Task {
                                 await proposeFlight(flight)
                             }
+                        } onSelect: {
+                            selectedFlight = flight
                         }
                     }
                 }
@@ -71,6 +74,9 @@ struct FlightsListView: View {
         }
         .alert(item: $alertInfo) { info in
             Alert(title: Text(info.title), message: Text(info.message))
+        }
+        .navigationDestination(item: $selectedFlight) { flight in
+            FlightDetailView(flight: flight)
         }
     }
 
@@ -169,66 +175,73 @@ private struct FlightRowCard: View {
     let flight: Flight
     let isProposing: Bool
     let onPropose: () -> Void
+    let onSelect: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(flight.displayTitle)
-                        .font(.headline)
+            Button(action: onSelect) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(flight.displayTitle)
+                                .font(.headline)
 
-                    Text(flight.routeText)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                            Text(flight.routeText)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        if let status = flight.status, !status.isEmpty {
+                            Text(status)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Color.accentColor)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(Color.accentColor.opacity(0.15))
+                                )
+                        }
+                    }
+
+                    HStack(alignment: .top, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Departs: \(formattedDateTime(flight.departureDate))")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Arrives: \(formattedDateTime(flight.arrivalDate))")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                    }
+
+                    if let durationStopsText {
+                        Text(durationStopsText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let pricePointsText {
+                        Text(pricePointsText)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let seatClassText {
+                        Text("Seat: \(seatClassText)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-
-                Spacer()
-
-                if let status = flight.status, !status.isEmpty {
-                    Text(status)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.accentColor)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(Color.accentColor.opacity(0.15))
-                        )
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            HStack(alignment: .top, spacing: 24) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Departs: \(formattedDateTime(flight.departureDate))")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Arrives: \(formattedDateTime(flight.arrivalDate))")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                }
-            }
-
-            if let durationStopsText {
-                Text(durationStopsText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let pricePointsText {
-                Text(pricePointsText)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let seatClassText {
-                Text("Seat: \(seatClassText)")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            .buttonStyle(.plain)
 
             HStack {
                 if let bookingUrl, let bookingLink = URL(string: bookingUrl) {
