@@ -6,3 +6,4 @@ xcuserdata/
 # Xcode user state
 *.xcuserstate
 xcuserdata/
+.DS_Store
