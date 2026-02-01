@@ -17,8 +17,9 @@ enum FlightDateFormatter {
 
     static let dateTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
+        formatter.dateFormat = "MMM d, h:mm a"
+        formatter.locale = .current
+        formatter.timeZone = .current
         return formatter
     }()
 
@@ -34,6 +35,8 @@ enum FlightDateFormatter {
 
     static func dateTimeString(from date: Date?) -> String? {
         guard let date else { return nil }
+        let year = Calendar.current.component(.year, from: date)
+        guard year >= 1900, year <= 2100 else { return nil }
         return dateTimeFormatter.string(from: date)
     }
 }

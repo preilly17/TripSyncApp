@@ -177,7 +177,7 @@ private struct FlightRowCard: View {
                     Text(flight.displayTitle)
                         .font(.headline)
 
-                    Text(flight.subtitle)
+                    Text(flight.routeText)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -188,31 +188,25 @@ private struct FlightRowCard: View {
                     Text(status)
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.accentColor)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(Color.accentColor)
+                                .fill(Color.accentColor.opacity(0.15))
                         )
                 }
             }
 
             HStack(alignment: .top, spacing: 24) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Departs")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Text(formattedDateTime(flight.departureDate))
+                    Text("Departs: \(formattedDateTime(flight.departureDate))")
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Arrives")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Text(formattedDateTime(flight.arrivalDate))
+                    Text("Arrives: \(formattedDateTime(flight.arrivalDate))")
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
@@ -230,13 +224,19 @@ private struct FlightRowCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            if let source = sourceText {
-                Text("Source: \(source)")
+            if let seatClassText {
+                Text("Seat: \(seatClassText)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
             HStack {
+                if let bookingUrl, let bookingLink = URL(string: bookingUrl) {
+                    Link("View booking", destination: bookingLink)
+                        .font(.subheadline)
+                        .buttonStyle(.bordered)
+                }
+
                 Spacer()
                 Button {
                     onPropose()
@@ -266,16 +266,20 @@ private struct FlightRowCard: View {
         return "TBD"
     }
 
-    private var sourceText: String? {
-        if let bookingUrl = flight.bookingUrl,
-           !bookingUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return bookingUrl
-        }
-        if let platform = flight.platform,
-           !platform.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return platform
+    private var seatClassText: String? {
+        if let seatClass = flight.seatClass,
+           !seatClass.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return seatClass
         }
         return nil
+    }
+
+    private var bookingUrl: String? {
+        guard let bookingUrl = flight.bookingUrl?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !bookingUrl.isEmpty else {
+            return nil
+        }
+        return bookingUrl
     }
 
     private var durationStopsText: String? {
@@ -307,12 +311,12 @@ private struct FlightRowCard: View {
 
         if let price = flight.price, !price.isEmpty {
             if let currency = flight.currency, !currency.isEmpty {
-                return "\(price) \(currency)"
+                return "Price: \(price) \(currency)"
             }
-            return price
+            return "Price: \(price)"
         }
 
-        return nil
+        return "Price: TBD"
     }
 }
 
