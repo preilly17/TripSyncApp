@@ -4,13 +4,29 @@ import Combine
 @MainActor
 final class HotelsListViewModel: ObservableObject {
     @Published var state: HotelsState = .loading
+    @Published var currentUser: User?
 
     private let tripId: Int
     private let hotelsAPI: HotelsAPI?
+    private let authAPI: AuthAPI?
 
     init(tripId: Int, hotelsAPI: HotelsAPI?) {
         self.tripId = tripId
         self.hotelsAPI = hotelsAPI
+        self.authAPI = try? AuthAPI()
+    }
+
+    var tripIdentifier: Int {
+        tripId
+    }
+
+    func loadCurrentUser() async {
+        guard let authAPI else { return }
+        do {
+            currentUser = try await authAPI.currentUser()
+        } catch {
+            currentUser = nil
+        }
     }
 
     func load() async {

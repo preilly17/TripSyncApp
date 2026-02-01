@@ -167,30 +167,39 @@ struct HotelsAPI {
 }
 
 struct AddHotelPayload: Encodable {
-    let name: String
-    let address: String?
-    let city: String?
-    let checkIn: String?
-    let checkOut: String?
+    let tripId: Int
+    let userId: String
+    let hotelName: String
+    let address: String
+    let city: String
+    let country: String
+    let checkInDate: String
+    let checkOutDate: String
     let bookingUrl: String?
     let status: String?
     let platform: String?
 
     init(
-        name: String,
-        address: String?,
-        city: String?,
-        checkIn: String?,
-        checkOut: String?,
+        tripId: Int,
+        userId: String,
+        hotelName: String,
+        address: String,
+        city: String,
+        country: String,
+        checkInDate: String,
+        checkOutDate: String,
         bookingUrl: String?,
         status: String? = "confirmed",
         platform: String? = "manual"
     ) {
-        self.name = name
+        self.tripId = tripId
+        self.userId = userId
+        self.hotelName = hotelName
         self.address = address
         self.city = city
-        self.checkIn = checkIn
-        self.checkOut = checkOut
+        self.country = country
+        self.checkInDate = checkInDate
+        self.checkOutDate = checkOutDate
         self.bookingUrl = bookingUrl
         self.status = status
         self.platform = platform
