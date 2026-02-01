@@ -12,12 +12,14 @@ struct Flight: Identifiable, Decodable {
     let arrivalTimeRaw: String?
     let duration: String?
     let stops: Int?
+    let aircraft: String?
     let price: String?
     let pointsCost: Int?
     let currency: String?
     let status: String?
     let bookingUrl: String?
     let platform: String?
+    let bookingSource: String?
     let seatClass: String?
     let proposer: String?
 
@@ -89,12 +91,14 @@ struct Flight: Identifiable, Decodable {
         arrivalTimeRaw = Self.decodeString(from: container, key: .arrivalTimeRaw)
         duration = Self.decodeDuration(from: container, key: .duration)
         stops = Self.decodeInt(from: container, key: .stops)
+        aircraft = Self.decodeString(from: container, key: .aircraft)
         price = Self.decodePrice(from: container, key: .price)
         pointsCost = Self.decodeInt(from: container, key: .pointsCost)
         currency = Self.decodeString(from: container, key: .currency)
         status = Self.decodeString(from: container, key: .status)
         bookingUrl = Self.decodeString(from: container, key: .bookingUrl)
         platform = Self.decodeString(from: container, key: .platform)
+        bookingSource = Self.decodeString(from: container, key: .bookingSource)
         seatClass = Self.decodeString(from: container, key: .seatClass)
         proposer = Self.decodeString(from: container, key: .proposer)
 
@@ -122,12 +126,14 @@ struct Flight: Identifiable, Decodable {
         case arrivalTimeRaw = "arrivalTime"
         case duration
         case stops
+        case aircraft
         case price
         case pointsCost
         case currency
         case status
         case bookingUrl
         case platform
+        case bookingSource = "booking_source"
         case seatClass
         case proposer
     }
