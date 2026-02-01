@@ -4,6 +4,14 @@ struct TripDetailsView: View {
     let trip: TripSummaryDisplay
     @State private var selectedTab: TripDetailsTab = .overview
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @StateObject private var hotelsViewModel: HotelsListViewModel
+    @State private var showingAddHotelSheet = false
+
+    init(trip: TripSummaryDisplay, hotelsAPI: HotelsAPI? = nil) {
+        self.trip = trip
+        let resolvedAPI = hotelsAPI ?? (try? HotelsAPI())
+        _hotelsViewModel = StateObject(wrappedValue: HotelsListViewModel(tripId: trip.id, hotelsAPI: resolvedAPI))
+    }
 
     var body: some View {
         ScrollView {
@@ -21,6 +29,20 @@ struct TripDetailsView: View {
             if !availableTabs.contains(selectedTab) {
                 selectedTab = .overview
             }
+        }
+        .toolbar {
+            if selectedTab == .lodging {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingAddHotelSheet = true
+                    } label: {
+                        Label("Add Hotel", systemImage: "plus")
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingAddHotelSheet) {
+            AddHotelSheetView(viewModel: hotelsViewModel)
         }
     }
 
@@ -92,10 +114,12 @@ struct TripDetailsView: View {
         case .proposals:
             ProposalsTabView(tripId: trip.id)
         case .lodging:
-            TripDetailsCard(title: "Lodging — Coming soon") {
-                Text("Stay information will appear here.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Hotels")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+
+                HotelsListView(viewModel: hotelsViewModel)
             }
         case .activities:
             TripDetailsCard(title: "Activities — Coming soon") {
