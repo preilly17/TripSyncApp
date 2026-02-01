@@ -7,9 +7,8 @@ struct AddHotelSheetView: View {
     @State private var name = ""
     @State private var city = ""
     @State private var address = ""
+    @State private var country = ""
     @State private var bookingUrl = ""
-    @State private var includeCheckIn = true
-    @State private var includeCheckOut = true
     @State private var checkInDate = Date()
     @State private var checkOutDate = Date()
     @State private var statusOption: HotelStatusOption = .confirmed
@@ -24,26 +23,21 @@ struct AddHotelSheetView: View {
                     TextField("Name", text: $name)
                     TextField("City", text: $city)
                     TextField("Address", text: $address)
+                    TextField("Country", text: $country)
                 }
 
                 Section("Dates") {
-                    Toggle("Add check-in", isOn: $includeCheckIn)
-                    if includeCheckIn {
-                        DatePicker(
-                            "Check-in",
-                            selection: $checkInDate,
-                            displayedComponents: [.date, .hourAndMinute]
-                        )
-                    }
+                    DatePicker(
+                        "Check-in",
+                        selection: $checkInDate,
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
 
-                    Toggle("Add check-out", isOn: $includeCheckOut)
-                    if includeCheckOut {
-                        DatePicker(
-                            "Check-out",
-                            selection: $checkOutDate,
-                            displayedComponents: [.date, .hourAndMinute]
-                        )
-                    }
+                    DatePicker(
+                        "Check-out",
+                        selection: $checkOutDate,
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
                 }
 
                 Section("Booking") {
@@ -90,6 +84,9 @@ struct AddHotelSheetView: View {
                 Alert(title: Text(info.title), message: Text(info.message))
             }
         }
+        .task {
+            await viewModel.loadCurrentUser()
+        }
     }
 
     @MainActor
@@ -98,22 +95,48 @@ struct AddHotelSheetView: View {
             return
         }
 
+        guard let resolvedAddress = requiredString(address, label: "address") else {
+            return
+        }
+
+        guard let resolvedCity = requiredString(city, label: "city") else {
+            return
+        }
+
+        guard let resolvedCountry = requiredString(country, label: "country") else {
+            return
+        }
+
+        if viewModel.currentUser == nil {
+            await viewModel.loadCurrentUser()
+        }
+
+        guard let userId = viewModel.currentUser?.id else {
+            alertInfo = AlertInfo(
+                title: "Missing user information",
+                message: "Please sign in again to add a hotel."
+            )
+            return
+        }
+
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
-        let checkInString = includeCheckIn ? formatter.string(from: checkInDate) : nil
-        let checkOutString = includeCheckOut ? formatter.string(from: checkOutDate) : nil
-
         let payload = AddHotelPayload(
-            name: resolvedName,
-            address: optionalString(address),
-            city: optionalString(city),
-            checkIn: checkInString,
-            checkOut: checkOutString,
+            tripId: viewModel.tripIdentifier,
+            userId: userId,
+            hotelName: resolvedName,
+            address: resolvedAddress,
+            city: resolvedCity,
+            country: resolvedCountry,
+            checkInDate: formatter.string(from: checkInDate),
+            checkOutDate: formatter.string(from: checkOutDate),
             bookingUrl: optionalString(bookingUrl),
             status: statusOption.apiValue,
             platform: "manual"
         )
+
+        print("🏨 Create hotel payload:", payload)
 
         isSubmitting = true
         defer { isSubmitting = false }
