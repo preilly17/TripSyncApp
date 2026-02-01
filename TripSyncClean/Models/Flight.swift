@@ -24,11 +24,16 @@ struct Flight: Identifiable, Decodable {
     var displayTitle: String {
         let airlineText = airline?.trimmingCharacters(in: .whitespacesAndNewlines)
         let numberText = flightNumber?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let parts = [airlineText, numberText].compactMap { value -> String? in
-            guard let value, !value.isEmpty else { return nil }
-            return value
+
+        guard let airlineText, !airlineText.isEmpty else {
+            return "Flight"
         }
-        return parts.isEmpty ? "Flight" : parts.joined(separator: " ")
+
+        if let numberText, !numberText.isEmpty {
+            return "\(airlineText) \(numberText)"
+        }
+
+        return airlineText
     }
 
     var subtitle: String {
