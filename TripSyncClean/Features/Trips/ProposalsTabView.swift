@@ -381,13 +381,6 @@ private struct FlightProposalCard: View {
     let onVote: () -> Void
     let onCancel: () -> Void
 
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }()
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
@@ -518,8 +511,8 @@ private struct FlightProposalCard: View {
     }
 
     private func formattedDate(_ date: Date?, fallback: String?) -> String {
-        if let date {
-            return Self.dateFormatter.string(from: date)
+        if let formatted = FlightDateFormatter.dateTimeString(from: date) {
+            return formatted
         }
         if let fallback, !fallback.isEmpty {
             return fallback

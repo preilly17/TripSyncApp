@@ -169,13 +169,6 @@ private struct FlightRowCard: View {
     let isProposing: Bool
     let onPropose: () -> Void
 
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }()
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -209,7 +202,7 @@ private struct FlightRowCard: View {
                     Text("Departs")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Text(formattedDate(flight.departureDate))
+                    Text(formattedDateTime(flight.departureDate))
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
@@ -218,7 +211,7 @@ private struct FlightRowCard: View {
                     Text("Arrives")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Text(formattedDate(flight.arrivalDate))
+                    Text(formattedDateTime(flight.arrivalDate))
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
@@ -230,20 +223,10 @@ private struct FlightRowCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            if !detailItems.isEmpty {
-                HStack(spacing: 8) {
-                    ForEach(detailItems, id: \.self) { item in
-                        Text(item)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(Color(.tertiarySystemBackground))
-                            )
-                    }
-                }
+            if let pricePointsText {
+                Text(pricePointsText)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             if let source = sourceText {
@@ -275,9 +258,11 @@ private struct FlightRowCard: View {
         )
     }
 
-    private func formattedDate(_ date: Date?) -> String {
-        guard let date else { return "TBD" }
-        return Self.dateFormatter.string(from: date)
+    private func formattedDateTime(_ date: Date?) -> String {
+        if let formatted = FlightDateFormatter.dateTimeString(from: date) {
+            return formatted
+        }
+        return "TBD"
     }
 
     private var sourceText: String? {
@@ -311,15 +296,22 @@ private struct FlightRowCard: View {
         return parts.isEmpty ? nil : parts.joined(separator: " • ")
     }
 
-    private var detailItems: [String] {
-        var items: [String] = []
+    private var pricePointsText: String? {
         if let pointsCost = flight.pointsCost {
-            items.append("Points \(pointsCost)")
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .decimal
+            let formatted = formatter.string(from: NSNumber(value: pointsCost)) ?? "\(pointsCost)"
+            return "Points: \(formatted)"
         }
+
         if let price = flight.price, !price.isEmpty {
-            items.append("Price \(price)")
+            if let currency = flight.currency, !currency.isEmpty {
+                return "\(price) \(currency)"
+            }
+            return price
         }
-        return items
+
+        return nil
     }
 }
 
