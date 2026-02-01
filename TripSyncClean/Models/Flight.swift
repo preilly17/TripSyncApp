@@ -1,6 +1,6 @@
 import Foundation
 
-struct Flight: Identifiable, Decodable {
+struct Flight: Identifiable, Decodable, Hashable {
     let id: Int
     let airline: String?
     let flightNumber: String?
@@ -257,5 +257,13 @@ struct Flight: Identifiable, Decodable {
             return formatted
         }
         return String(format: "%.2f", value)
+    }
+
+    static func == (lhs: Flight, rhs: Flight) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
