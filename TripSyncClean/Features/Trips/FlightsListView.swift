@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct FlightsListView: View {
     @StateObject private var viewModel: FlightsViewModel

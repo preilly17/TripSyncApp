@@ -41,14 +41,16 @@ struct Flight: Identifiable, Decodable {
     }
 
     var routeText: String {
-        let departure = routeCode(preferred: departureCode, fallback: departureAirport)
-        let arrival = routeCode(preferred: arrivalCode, fallback: arrivalAirport)
+
+        let departure = Self.routeCode(preferred: departureCode, fallback: departureAirport)
+        let arrival = Self.routeCode(preferred: arrivalCode, fallback: arrivalAirport)
         if departure.isEmpty && arrival.isEmpty {
             return "TBD"
         }
         let departureText = departure.isEmpty ? "TBD" : departure
         let arrivalText = arrival.isEmpty ? "TBD" : arrival
         return "\(departureText) → \(arrivalText)"
+
     }
 
     var departureDate: Date? {

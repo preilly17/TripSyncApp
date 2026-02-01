@@ -34,8 +34,8 @@ struct FlightProposal: Identifiable, Decodable {
     }
 
     var routeText: String {
-        let depart = airportDisplay(code: departAirportCode, name: departAirportName)
-        let arrive = airportDisplay(code: arriveAirportCode, name: arriveAirportName)
+        let depart = Self.airportDisplay(code: departAirportCode, name: departAirportName)
+        let arrive = Self.airportDisplay(code: arriveAirportCode, name: arriveAirportName)
         guard !depart.isEmpty || !arrive.isEmpty else { return "" }
         return "\(depart.isEmpty ? "—" : depart) → \(arrive.isEmpty ? "—" : arrive)"
     }

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct ProposalsTabView: View {
     @StateObject private var viewModel: FlightProposalsViewModel
