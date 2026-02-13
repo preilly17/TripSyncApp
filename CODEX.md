@@ -45,6 +45,105 @@ For small, obvious edits (1–2 files), a short plan is sufficient.
 6. **Summarize completion**
    - List changed files and a brief validation summary.
 
+
+## Ralph Sprint Workflow (Mandatory on Plan Finalization)
+
+When a plan is approved and ready for execution, you **MUST** scaffold a Ralph sprint before writing any implementation code. This is a blocking requirement.
+
+**Small change exception**: For tasks that touch 1–2 files and have a single, obvious implementation (e.g., a bug fix, copy change, or minor tweak), skip the full Ralph scaffold. Propose the change, get approval, and execute directly.
+
+### Step 1: Create the sprint folder
+
+```text
+plans/sprints/YYYY-MM-DD-{slug}/
+```
+
+Use today's date and a short kebab-case slug derived from the task.
+
+### Step 2: Generate `prd.json`
+
+Follow `plans/prd.schema.json`. Convert each approved task into a PRD item:
+
+```json
+{
+  "project": {
+    "name": "<sprint title>",
+    "repoRoot": "."
+  },
+  "definitionOfDone": {
+    "required": ["All items pass", "Project builds", "No regressions"]
+  },
+  "items": [
+    {
+      "id": "<PREFIX>-001",
+      "priority": 1,
+      "title": "...",
+      "description": "...",
+      "acceptanceCriteria": ["..."],
+      "passes": false,
+      "tags": ["..."]
+    }
+  ]
+}
+```
+
+Requirements:
+- IDs use a short prefix derived from the slug (e.g., `NDP-001`, `PRICE-001`)
+- All items start with `"passes": false`
+- Every item includes `acceptanceCriteria`
+- Add top-level `files_changed` when known
+
+### Step 3: Create `progress.txt`
+
+```text
+<Sprint Title>
+=====================================================
+
+Started: YYYY-MM-DD
+Status: In Progress (0/N items)
+
+## Goals
+- <goal 1>
+- <goal 2>
+
+## Items
+
+### Priority 1
+- [ ] PREFIX-001: <title>
+- [ ] PREFIX-002: <title>
+
+### Priority 2
+- [ ] PREFIX-003: <title>
+
+## Files to Modify
+- <file list>
+
+## Deployment
+- <deployment notes, if applicable>
+```
+
+### Step 4: Create `prompt.md` (sprint-specific instructions)
+
+Base it on `plans/ralph_prompt.md` and add:
+- Verification commands relevant to the sprint (for iOS, include `xcodebuild` commands)
+- Domain-specific guidelines and flow-protection notes
+- Constraints or gotchas discovered during planning
+
+### Step 5: Print the launch command
+
+After scaffolding, print:
+
+```bash
+RALPH_AGENT_CMD=./plans/adapters/claude_code.sh ./plans/ralph.sh plans/sprints/YYYY-MM-DD-{slug} 25
+```
+
+### Important
+
+- Do **not** begin implementation until the sprint scaffold is created
+- Do **not** skip required artifacts (`prd.json`, `progress.txt`, `prompt.md`, folder)
+- If the user says "run it" or "go", scaffold first, then execute interactively
+
+
 ---
 
 ## Project-Specific Context
