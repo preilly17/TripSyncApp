@@ -45,6 +45,7 @@ For small, obvious edits (1–2 files), a short plan is sufficient.
 6. **Summarize completion**
    - List changed files and a brief validation summary.
 
+
 ## Ralph Sprint Workflow (Mandatory on Plan Finalization)
 
 When a plan is approved and ready for execution, you **MUST** scaffold a Ralph sprint before writing any implementation code. This is a blocking requirement.
@@ -141,6 +142,7 @@ RALPH_AGENT_CMD=./plans/adapters/claude_code.sh ./plans/ralph.sh plans/sprints/Y
 - Do **not** begin implementation until the sprint scaffold is created
 - Do **not** skip required artifacts (`prd.json`, `progress.txt`, `prompt.md`, folder)
 - If the user says "run it" or "go", scaffold first, then execute interactively
+
 
 ---
 
